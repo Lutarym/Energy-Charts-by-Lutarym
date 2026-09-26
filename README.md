@@ -1,12 +1,15 @@
 # Energy-Charts-by-Lutarym
 
+**English** · [Deutsch](README.de.md) · [Français](README.fr.md) · [日本語](README.ja.md)
+
 Lovelace Custom Card for Home Assistant. A single card whose behaviour is
 chosen via `card_type` in a visual configuration form. Most types draw
 monthly bar charts (current year vs. up to 3 previous years); a few draw a
 computed ratio (efficiency, self-consumption, COP), and two render a
 text/number summary instead of bars (electricity overview, per-room
-energy). The editor and the card itself are fully bilingual
-(German/English), following `hass.language` automatically.
+energy). The card and its editor speak four languages, English, German,
+French and Japanese, following `hass.language` automatically; any other
+language setting falls back to English.
 
 ## Card types
 
