@@ -2,6 +2,8 @@
 
 [English](README.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · **日本語**
 
+バージョン 2.0.0 · [変更履歴](CHANGELOG.md)
+
 Home Assistant 用の Lovelace カスタムカードです。1枚のカードの動作を、視覚的な
 設定フォームの `card_type` で選びます。ほとんどの種類は月ごとの棒グラフを描き
 （本年と最大3年前まで）、いくつかは計算した比率を示し（効率、自家消費率、COP）、
@@ -184,6 +186,50 @@ EV充電器の月間充電電力量（kWh、月の合計）。任意の重ね描
   「その他」の行と割合に太陽光の自家消費を含む実際の使用量が反映されます。
 - `rooms`：最大10部屋。それぞれ自由な `name`、専用の電力量 `entity`、任意の
   現在値 `power_entity` を設定します。
+
+#### 自動検出
+
+部屋を手作業で並べる代わりに、カードが自分で見つけることもできます。
+エディターで**部屋を自動的に検出**をオンにするか、`rooms_auto: true` を
+設定してください。
+
+デバイスクラスが `energy` で、state class が `total` または
+`total_increasing` のセンサー、つまり実際の積算計が部屋になります。カードが
+計算に使う `change` 統計を持つのはこれらだけだからです。それぞれについて、
+末尾の語を取り除いた残りが一致する電力センサーを探します。たとえば
+`sensor.wallbox_strom_energie` は `sensor.wallbox_strom_leistung` と
+組になり、部屋名の横に現在のワット数が表示されます。名前はセンサーの
+`friendly_name` から、末尾の電力量を表す語を除いたものです。
+
+設定なしで常に除外されるもの：
+
+- 上で指定した `total_entity`、`pv_entity`、`feedin_entity`。これらを部屋
+  として数えると割合が意味をなさなくなります
+- 同じ計器の期間別の派生。エンティティIDに `heute`、`today`、`monat`、
+  `month`、`jahr`、`year` などの語が含まれるもので判定します。ユーティリティ
+  メーターのヘルパーは同じデバイスクラスを持つため、同じ使用量を二重に
+  並べてしまいます
+- 積算計ではないもの、たとえば単なる瞬時値のセンサー
+
+任意のフィルターが2つあります。
+
+- `rooms_auto_include`：IDまたは名前にこの文字列を含むエンティティのみ。
+- `rooms_auto_exclude`：除外するエンティティIDまたは文字列を、カンマ区切りで
+  指定します。
+
+エディターは入力中に該当するエンティティをIDとともに一覧表示するので、保存
+する前にフィルターの効果を確認できます。自動検出が有効な間、手動の `rooms`
+リストは使われません。オフにすれば、そのままの内容で戻ります。
+
+```yaml
+type: custom:energy-charts-by-lutarym
+card_type: rooms
+rooms_auto: true
+rooms_auto_exclude: sensor.reizoko_energie
+total_entity: sensor.grid_import
+pv_entity: sensor.pv_ertrag
+feedin_entity: sensor.pv_feedin
+```
 
 ## HACS からのインストール
 

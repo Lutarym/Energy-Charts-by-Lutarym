@@ -2,6 +2,8 @@
 
 [English](README.md) · **Deutsch** · [Français](README.fr.md) · [日本語](README.ja.md)
 
+Version 2.0.0 · [Changelog](CHANGELOG.md)
+
 Lovelace Custom Card für Home Assistant. Eine einzige Karte, deren Verhalten
 über `card_type` in einem grafischen Konfigurationsformular gewählt wird. Die
 meisten Typen zeichnen monatliche Balkendiagramme (aktuelles Jahr gegen bis zu
@@ -204,6 +206,52 @@ Hausverbrauch. Konfiguration:
   den tatsächlichen Verbrauch einschließlich PV-Eigenverbrauch wieder.
 - `rooms`: bis zu 10 Räume, jeder mit frei wählbarem `name`, eigener Energie-
   `entity` und optionaler Live-`power_entity`.
+
+#### Automatische Erkennung
+
+Statt die Räume von Hand einzutragen, kann die Karte sie selbst finden. Im
+Editor **Räume automatisch erkennen** einschalten oder `rooms_auto: true`
+setzen.
+
+Ein Sensor wird zum Raum, wenn er die Geräteklasse `energy` und eine
+State-Class `total` oder `total_increasing` hat, also ein echter Zähler ist.
+Nur für diese gibt es die `change`-Statistik, mit der die Karte rechnet. Zu
+jedem sucht die Karte einen Leistungssensor, dessen Entity-ID nach dem
+Abschneiden des letzten Wortes denselben Stamm hat. So findet
+`sensor.wallbox_strom_energie` seinen Partner `sensor.wallbox_strom_leistung`
+und der Live-Wattwert erscheint neben dem Raumnamen. Der Name stammt aus dem
+`friendly_name` des Sensors, ohne das abschließende Energie-Wort.
+
+Immer ausgeschlossen, ohne Konfiguration:
+
+- die oben gesetzten `total_entity`, `pv_entity` und `feedin_entity`. Als
+  Raum gezählt würden sie die Prozentanteile unbrauchbar machen
+- Zeitraum-Varianten desselben Zählers, erkannt an einem Wort wie `heute`,
+  `taeglich`, `monat`, `jahr` oder `today` in der Entity-ID.
+  Utility-Meter-Helfer tragen dieselbe Geräteklasse und würden denselben
+  Verbrauch ein zweites Mal auflisten
+- alles, was kein Zähler ist, etwa ein reiner Momentanwert
+
+Zwei optionale Filter:
+
+- `rooms_auto_include`: nur Entities, deren ID oder Name diesen Text enthält.
+- `rooms_auto_exclude`: kommagetrennte Entity-IDs oder Textteile, die
+  wegfallen sollen.
+
+Der Editor listet jeden Treffer mit Entity-ID schon beim Tippen auf, du
+siehst also vor dem Speichern, was ein Filter bewirkt. Bei aktiver Automatik
+wird die manuelle `rooms`-Liste ignoriert; beim Ausschalten ist sie
+unverändert wieder da.
+
+```yaml
+type: custom:energy-charts-by-lutarym
+card_type: rooms
+rooms_auto: true
+rooms_auto_exclude: sensor.kuehlschrank_energie
+total_entity: sensor.grid_import
+pv_entity: sensor.pv_ertrag
+feedin_entity: sensor.pv_feedin
+```
 
 ## Installation über HACS
 

@@ -52,6 +52,8 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
+const CARD_VERSION = "2.0.0";
+
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
 const I18N = {
@@ -78,6 +80,15 @@ const I18N = {
     rmEntityLabel: 'Room electricity meter (kWh)',
     rmPowerEntityLabel: 'Live power entity (optional)',
     rmAddRoomLabel: '+ Add room',
+    rmAutoLabel: 'Detect rooms automatically',
+    rmAutoHint: 'Takes every sensor with device class "energy" that is a real meter, pairs it with a matching power sensor, and replaces the list below.',
+    rmAutoIncludeLabel: 'Only entities containing',
+    rmAutoIncludeHint: 'Optional filter on entity ID or name. Leave empty for all.',
+    rmAutoExcludeLabel: 'Exclude',
+    rmAutoExcludeHint: 'Comma-separated entity IDs or text fragments. The total, PV and feed-in entities above are always excluded, as are daily/monthly/yearly variants of the same meter.',
+    rmAutoFound: '{count} entities found',
+    rmAutoNone: 'No matching entities found.',
+    rmAutoListHidden: 'The manual list is inactive while automatic detection is on.',
     ovDefaultTitle: 'Electricity Overview',
     ovNoStatsYet: 'No statistics data available yet.',
     ovWsError: 'WebSocket error: {msg}',
@@ -199,6 +210,15 @@ const I18N = {
     rmEntityLabel: 'Stromzähler des Raums (kWh)',
     rmPowerEntityLabel: 'Live-Leistung-Entity (optional)',
     rmAddRoomLabel: '+ Raum hinzufügen',
+    rmAutoLabel: 'Räume automatisch erkennen',
+    rmAutoHint: 'Nimmt jeden Sensor mit Geräteklasse "energy", der ein echter Zähler ist, paart ihn mit einem passenden Leistungssensor und ersetzt damit die Liste unten.',
+    rmAutoIncludeLabel: 'Nur Entities, die enthalten',
+    rmAutoIncludeHint: 'Optionaler Filter auf Entity-ID oder Name. Leer lassen für alle.',
+    rmAutoExcludeLabel: 'Ausschließen',
+    rmAutoExcludeHint: 'Kommagetrennte Entity-IDs oder Textteile. Die Gesamt-, PV- und Einspeise-Entity oben sind immer ausgeschlossen, ebenso Tages-, Monats- und Jahresvarianten desselben Zählers.',
+    rmAutoFound: '{count} Entities gefunden',
+    rmAutoNone: 'Keine passenden Entities gefunden.',
+    rmAutoListHidden: 'Die manuelle Liste ist inaktiv, solange die automatische Erkennung an ist.',
     ovDefaultTitle: 'Stromübersicht',
     ovNoStatsYet: 'Noch keine Statistikdaten vorhanden.',
     ovWsError: 'WebSocket-Fehler: {msg}',
@@ -320,6 +340,15 @@ const I18N = {
     rmEntityLabel: 'Compteur électrique de la pièce (kWh)',
     rmPowerEntityLabel: 'Entité puissance instantanée (facultatif)',
     rmAddRoomLabel: '+ Ajouter une pièce',
+    rmAutoLabel: 'Détecter les pièces automatiquement',
+    rmAutoHint: 'Prend chaque capteur de classe « energy » qui est un vrai compteur, l\'associe à un capteur de puissance correspondant et remplace la liste ci-dessous.',
+    rmAutoIncludeLabel: 'Seulement les entités contenant',
+    rmAutoIncludeHint: 'Filtre facultatif sur l\'identifiant ou le nom de l\'entité. Laisser vide pour toutes.',
+    rmAutoExcludeLabel: 'Exclure',
+    rmAutoExcludeHint: 'Identifiants d\'entité ou fragments de texte séparés par des virgules. Les entités total, PV et injection ci-dessus sont toujours exclues, ainsi que les variantes journalières, mensuelles et annuelles du même compteur.',
+    rmAutoFound: '{count} entités trouvées',
+    rmAutoNone: 'Aucune entité correspondante trouvée.',
+    rmAutoListHidden: 'La liste manuelle est inactive tant que la détection automatique est active.',
     ovDefaultTitle: 'Aperçu électricité',
     ovNoStatsYet: 'Aucune donnée statistique disponible pour le moment.',
     ovWsError: 'Erreur WebSocket : {msg}',
@@ -441,6 +470,15 @@ const I18N = {
     rmEntityLabel: '部屋の電力量計（kWh）',
     rmPowerEntityLabel: '現在の消費電力エンティティ（任意）',
     rmAddRoomLabel: '＋ 部屋を追加',
+    rmAutoLabel: '部屋を自動的に検出',
+    rmAutoHint: 'デバイスクラスが「energy」で実際の積算計であるセンサーをすべて取得し、対応する電力センサーと組み合わせて、下のリストを置き換えます。',
+    rmAutoIncludeLabel: '次を含むエンティティのみ',
+    rmAutoIncludeHint: 'エンティティIDまたは名前に対する任意のフィルターです。空欄ですべてが対象になります。',
+    rmAutoExcludeLabel: '除外',
+    rmAutoExcludeHint: 'エンティティIDまたは文字列をカンマ区切りで指定します。上の全体・太陽光・売電のエンティティ、および同じ計器の日次・月次・年次の派生は常に除外されます。',
+    rmAutoFound: '{count} 件のエンティティが見つかりました',
+    rmAutoNone: '該当するエンティティが見つかりません。',
+    rmAutoListHidden: '自動検出が有効な間、手動のリストは使われません。',
     ovDefaultTitle: '電力概要',
     ovNoStatsYet: '統計データがまだありません。',
     ovWsError: 'WebSocketエラー：{msg}',
@@ -684,6 +722,88 @@ function lutarymEsc(v) {
   return String(v ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── Automatische Raumerkennung (rooms-Preset) ─────────────────────────
+// Grundlage ist allein die device_class: jeder Sensor mit device_class
+// 'energy' und einer Zaehler-state_class kommt als Raum in Frage. Die
+// Wortlisten unten dienen nur dazu, aus Energie- und Leistungssensor
+// denselben Namensstamm zu gewinnen, damit die beiden gepaart werden
+// koennen. Die Entity- und Geraete-Registry bleibt aussen vor: sie ist
+// fuer Custom Cards nicht dokumentiert und ihr Abruf braucht Adminrechte.
+const LUT_ENERGY_TAIL = ['energie','energy','verbrauch','consumption','kwh','wh',
+                         'total','gesamt','zaehler','zahler','counter','meter'];
+const LUT_POWER_TAIL  = ['leistung','power','watt','w','aktuell','current',
+                         'momentan','now','istwert'];
+// Zeitraum-Varianten desselben Zaehlers (Utility Meter, Statistik-Helfer).
+// Sie tragen dieselbe device_class und wuerden denselben Verbrauch ein
+// zweites Mal in die Liste bringen.
+const LUT_PERIOD_WORDS = ['heute','today','gestern','yesterday','taeglich','daily',
+                          'woche','week','weekly','monat','month','monthly',
+                          'jahr','year','yearly','quartal','quarter','stunde',
+                          'hour','hourly','letzte','last','vorjahr','vormonat',
+                          'vorwoche','bisher'];
+
+// Schneidet die bekannten Endungen ab, damit
+// sensor.wallbox_strom_energie und sensor.wallbox_strom_leistung
+// beide auf den Stamm "wallbox_strom" fallen.
+function lutarymStem(entityId, tail) {
+  const parts = entityId.slice(entityId.indexOf('.') + 1).split('_');
+  while (parts.length > 1 && tail.includes(parts[parts.length - 1])) parts.pop();
+  return parts.join('_');
+}
+
+// Anzeigename aus dem friendly_name, ohne die Endung des Energiesensors.
+function lutarymRoomName(friendly, fallbackId) {
+  const words = String(friendly || fallbackId || '').trim().split(/\s+/);
+  while (words.length > 1 && LUT_ENERGY_TAIL.includes(words[words.length - 1].toLowerCase())) {
+    words.pop();
+  }
+  return words.join(' ') || fallbackId || '';
+}
+
+function lutarymDetectRooms(hass, opts) {
+  const states = hass && hass.states;
+  if (!states) return [];
+  const o = opts || {};
+  const inc = String(o.include || '').trim().toLowerCase();
+  const exTerms = String(o.exclude || '').split(',')
+    .map(x => x.trim().toLowerCase()).filter(Boolean);
+  const skipPeriods = o.skipPeriods !== false;
+
+  // Leistungssensoren einmal nach Stamm indizieren.
+  const powerByStem = new Map();
+  for (const id in states) {
+    if (id.slice(0, 7) !== 'sensor.') continue;
+    const a = states[id].attributes;
+    if (!a || a.device_class !== 'power') continue;
+    const st = lutarymStem(id, LUT_POWER_TAIL);
+    if (!powerByStem.has(st)) powerByStem.set(st, id);
+  }
+
+  const found = [];
+  for (const id in states) {
+    if (id.slice(0, 7) !== 'sensor.') continue;
+    const a = states[id].attributes;
+    if (!a || a.device_class !== 'energy') continue;
+    // Nur echte Zaehler: die Karte rechnet mit der 'change'-Statistik,
+    // die es nur fuer total / total_increasing gibt.
+    if (a.state_class !== 'total' && a.state_class !== 'total_increasing') continue;
+    const objId = id.slice(7);
+    const lowId = id.toLowerCase();
+    const name  = String(a.friendly_name || objId);
+    const lowNm = name.toLowerCase();
+    if (exTerms.some(x => lowId.includes(x) || lowNm.includes(x))) continue;
+    if (inc && !lowId.includes(inc) && !lowNm.includes(inc)) continue;
+    if (skipPeriods && objId.toLowerCase().split('_').some(w => LUT_PERIOD_WORDS.includes(w))) continue;
+    found.push({
+      name: lutarymRoomName(name, objId),
+      entity: id,
+      power_entity: powerByStem.get(lutarymStem(id, LUT_ENERGY_TAIL)) || '',
+    });
+  }
+  found.sort((a, b) => a.name.localeCompare(b.name));
+  return found;
 }
 
 function presetInfo(hass, cardType) {
@@ -961,22 +1081,34 @@ class EnergyChartsByLutarym extends HTMLElement {
       this._isRooms = true;
       this._preset = preset;
       const roomsIn = Array.isArray(config.rooms) ? config.rooms.slice(0, 10) : [];
-      const roomsSig = JSON.stringify(roomsIn.map(r => r.entity));
+      const roomsAuto = config.rooms_auto === true;
+      const autoInclude = config.rooms_auto_include || '';
+      const autoExclude = config.rooms_auto_exclude || '';
       const pvEntity = config.pv_entity || '';
       const feedinEntity = config.feedin_entity || '';
+      // Bei aktiver Automatik haengt die Raumliste nicht an der Konfiguration,
+      // sondern an den Filtern - die gehoeren deshalb in die Signatur.
+      const roomsSig = roomsAuto
+        ? `auto|${autoInclude}|${autoExclude}`
+        : JSON.stringify(roomsIn.map(r => r.entity));
       const changed = !this._config
         || this._config.card_type !== cardType
         || this._config.total_entity !== (config.total_entity || '')
         || this._config.pvEntity !== pvEntity
         || this._config.feedinEntity !== feedinEntity
+        || this._config.roomsAuto !== roomsAuto
         || this._roomsSig !== roomsSig;
       this._roomsSig = roomsSig;
+      if (changed) this._autoSig = null; // Erkennung neu durchlaufen lassen
       this._config = {
         card_type: cardType,
         total_entity: config.total_entity || '',
         pvEntity,
         feedinEntity,
-        entity: config.total_entity || (roomsIn.length ? '__rooms__' : ''), // notConfigured check
+        roomsAuto,
+        autoInclude,
+        autoExclude,
+        entity: config.total_entity || (roomsIn.length || roomsAuto ? '__rooms__' : ''), // notConfigured check
         rooms: roomsIn.map(r => ({ name: r.name || '', entity: r.entity || '', power_entity: r.power_entity || '' })),
         title: config.title ?? presetInfo(this._hass, cardType).title,
         titleFontSize: Number(config.title_font_size) || 14,
@@ -984,7 +1116,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         color: lutarymSafeColor(config.color, preset.color),
       };
       if (changed) { this._roomsData = null; this._lastFetch = 0; }
-      if (changed && this._hass && (this._config.total_entity || this._config.rooms.length)) this._fetchRooms();
+      if (changed && this._hass && (this._config.total_entity || this._effectiveRooms().length)) this._fetchRooms();
       this._render();
       return;
     }
@@ -1098,7 +1230,7 @@ class EnergyChartsByLutarym extends HTMLElement {
       return;
     }
     if (this._isRooms) {
-      if ((this._config?.total_entity || this._config?.rooms?.length)
+      if ((this._config?.total_entity || this._effectiveRooms().length)
           && Date.now() - this._lastFetch > 15 * 60 * 1000) {
         this._fetchRooms();
       } else if (this._roomsData) {
@@ -1108,7 +1240,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         // unten wuerde die Karte alle 1,5 s ihr komplettes Shadow-DOM neu
         // aufbauen, auch wenn sich keine der konfigurierten Leistungs-
         // Entities geruehrt hat.
-        const sig = (this._config.rooms || [])
+        const sig = this._effectiveRooms()
           .map(r => r.power_entity ? (hass?.states?.[r.power_entity]?.state ?? '') : '')
           .join('|');
         if (sig !== this._roomsWattSig) {
@@ -1584,13 +1716,38 @@ class EnergyChartsByLutarym extends HTMLElement {
     return total > 0 ? total : null;
   }
 
+  // Die tatsaechlich anzuzeigenden Raeume. Bei aktiver Automatik ersetzt
+  // die Erkennung die konfigurierte Liste; das Ergebnis wird gepuffert und
+  // nur neu ermittelt, wenn sich Filter, Referenz-Entities oder die Zahl
+  // der bekannten Entities aendern.
+  _effectiveRooms() {
+    const cfg = this._config;
+    if (!cfg?.roomsAuto) return cfg?.rooms || [];
+    if (!this._hass?.states) return [];
+    const sig = [cfg.autoInclude, cfg.autoExclude, cfg.total_entity,
+                 cfg.pvEntity, cfg.feedinEntity,
+                 Object.keys(this._hass.states).length].join('|');
+    if (this._autoSig !== sig) {
+      this._autoSig = sig;
+      this._autoRooms = lutarymDetectRooms(this._hass, {
+        include: cfg.autoInclude,
+        // Die Karte wertet Gesamt-, PV- und Einspeisezaehler bereits an
+        // anderer Stelle aus. Als Raum gezaehlt wuerden sie die Anteile
+        // unbrauchbar machen.
+        exclude: [cfg.autoExclude, cfg.total_entity, cfg.pvEntity, cfg.feedinEntity]
+          .filter(Boolean).join(','),
+      });
+    }
+    return this._autoRooms || [];
+  }
+
   async _fetchRooms() {
-    if (!this._hass || (!this._config?.total_entity && !this._config?.rooms?.length)) return;
+    if (!this._hass || (!this._config?.total_entity && !this._effectiveRooms().length)) return;
     if (this._roomsLoading) return;
     this._roomsLoading = true;
     this._lastFetch = Date.now();
     try {
-      const roomList = this._config.rooms || [];
+      const roomList = this._effectiveRooms();
       const wantPv = !!(this._config.total_entity && this._config.pvEntity && this._config.feedinEntity);
       const [grid, pv, feed] = await Promise.all([
         this._config.total_entity ? this._roomYearKwh(this._config.total_entity) : Promise.resolve(null),
@@ -2076,7 +2233,8 @@ class EnergyChartsByLutarym extends HTMLElement {
     let otherHtml = '';
     let splitHtml = '';
 
-    if (!cfg.total_entity && !(cfg.rooms && cfg.rooms.length)) {
+    const roomsCfg = this._effectiveRooms();
+    if (!cfg.total_entity && !roomsCfg.length) {
       rowsHtml = `<div class="rm-empty">${t(hass, 'notConfigured')}</div>`;
     } else if (data && data.error) {
       totalStr = '!';
@@ -2135,7 +2293,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         <div class="rm-pct">${oPct}</div>
       </div>` : '';
     } else {
-      rowsHtml = (cfg.rooms || []).map(r => `<div class="rm-row"><div class="rm-namecell"><span class="rm-name">${lutarymEsc(r.name)}</span></div><div class="rm-barwrap"><div class="rm-bar"></div></div><div class="rm-kwh">…</div><div class="rm-pct"></div></div>`).join('');
+      rowsHtml = roomsCfg.map(r => `<div class="rm-row"><div class="rm-namecell"><span class="rm-name">${lutarymEsc(r.name)}</span></div><div class="rm-barwrap"><div class="rm-bar"></div></div><div class="rm-kwh">…</div><div class="rm-pct"></div></div>`).join('');
     }
 
     this.shadowRoot.innerHTML = `
@@ -2828,7 +2986,8 @@ class EnergyChartsByLutarym extends HTMLElement {
     }
     if (this._isRooms) {
       const cfg = this._config || {};
-      const nRows = (cfg.rooms?.length || 0) + (cfg.total_entity && cfg.rooms?.length ? 1 : 0);
+      const n = this._effectiveRooms().length;
+      const nRows = n + (cfg.total_entity && n ? 1 : 0);
       const hasSplit = !!(cfg.total_entity && cfg.pvEntity && cfg.feedinEntity);
       return 32 + (cfg.titleFontSize || 14) * 1.3 + 14
            + (hasSplit ? 66 : 60) + 29 + nRows * 32;
@@ -2931,6 +3090,9 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
     delete preserved.total_entity;
     delete preserved.pv_entity;
     delete preserved.rooms;
+    delete preserved.rooms_auto;
+    delete preserved.rooms_auto_include;
+    delete preserved.rooms_auto_exclude;
     delete preserved.energy_entity;
     delete preserved.price_per_kwh;
     delete preserved.base_fee_yearly;
@@ -2985,6 +3147,58 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
     form.appendChild(this._row(
       t(hass, 'editorTitle'), null, { text: {} }, 'title', cfg.title,
     ));
+
+    // ── Automatische Erkennung ──
+    const auto = cfg.rooms_auto === true;
+    form.appendChild(this._toggleRow(
+      t(hass, 'rmAutoLabel'), t(hass, 'rmAutoHint'), 'rooms_auto', auto, true,
+    ));
+
+    if (auto) {
+      form.appendChild(this._row(
+        t(hass, 'rmAutoIncludeLabel'), t(hass, 'rmAutoIncludeHint'), { text: {} },
+        'rooms_auto_include', cfg.rooms_auto_include,
+      ));
+      form.appendChild(this._row(
+        t(hass, 'rmAutoExcludeLabel'), t(hass, 'rmAutoExcludeHint'), { text: {} },
+        'rooms_auto_exclude', cfg.rooms_auto_exclude,
+      ));
+
+      // Trefferliste direkt im Editor: ohne sie filtert man blind.
+      const found = this._hass ? lutarymDetectRooms(this._hass, {
+        include: cfg.rooms_auto_include || '',
+        exclude: [cfg.rooms_auto_exclude, cfg.total_entity, cfg.pv_entity, cfg.feedin_entity]
+          .filter(Boolean).join(','),
+      }) : [];
+      const box = document.createElement('div');
+      box.className = 'editor-row';
+      box.style.cssText = 'border:1px solid var(--divider-color,#e0e0e0);border-radius:8px;padding:10px;gap:6px;';
+      const head = document.createElement('div');
+      head.style.cssText = 'font-size:12px;font-weight:600;color:var(--secondary-text-color);';
+      head.textContent = found.length
+        ? t(hass, 'rmAutoFound', { count: found.length })
+        : t(hass, 'rmAutoNone');
+      box.appendChild(head);
+      found.forEach(r => {
+        const line = document.createElement('div');
+        line.style.cssText = 'display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;';
+        const nm = document.createElement('span');
+        nm.textContent = r.name;
+        nm.style.cssText = 'color:var(--primary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        const id = document.createElement('span');
+        id.textContent = r.entity + (r.power_entity ? ' + W' : '');
+        id.style.cssText = 'color:var(--secondary-text-color);font-family:monospace;font-size:11px;white-space:nowrap;';
+        line.appendChild(nm); line.appendChild(id);
+        box.appendChild(line);
+      });
+      form.appendChild(box);
+
+      const note = document.createElement('div');
+      note.className = 'hint';
+      note.textContent = t(hass, 'rmAutoListHidden');
+      form.appendChild(note);
+      return; // manuelle Liste und "Raum hinzufuegen" entfallen
+    }
 
     // Section label + hint
     const sec = document.createElement('div');
@@ -3225,7 +3439,7 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
 
   // Simple boolean toggle (native checkbox — same reasoning as the native
   // <select> for dropdowns: no dependency on ha-selector loading timing).
-  _toggleRow(labelText, hintText, field, checked) {
+  _toggleRow(labelText, hintText, field, checked, rerender) {
     const wrap = document.createElement('div');
     wrap.className = 'editor-row';
 
@@ -3242,6 +3456,10 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
     input.checked = checked;
     input.addEventListener('change', ev => {
       this._onFieldChange(field, ev.target.checked);
+      // Schalter, die andere Felder ein- oder ausblenden, brauchen einen
+      // Neuaufbau: setConfig rendert nur beim ersten Aufruf und beim
+      // Kartentyp-Wechsel neu, damit Textfelder den Fokus behalten.
+      if (rerender) this._render();
     });
     line.appendChild(input);
 
@@ -3634,6 +3852,12 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
 customElements.define('energy-charts-by-lutarym-editor', EnergyChartsByLutarymEditor);
 
 // ── Registration for HACS / "Add Card" dialog ──────────────────
+
+console.info(
+  `%c ENERGY CHARTS BY LUTARYM %c ${CARD_VERSION} `,
+  "background:#0D131B;color:#E0762E;font-weight:600;padding:2px 6px;border-radius:3px 0 0 3px",
+  "background:#E0762E;color:#0D131B;font-weight:600;padding:2px 6px;border-radius:0 3px 3px 0"
+);
 
 window.customCards = window.customCards || [];
 window.customCards.push({

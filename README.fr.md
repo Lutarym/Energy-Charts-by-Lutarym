@@ -2,6 +2,8 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Français** · [日本語](README.ja.md)
 
+Version 2.0.0 · [Changelog](CHANGELOG.md)
+
 Carte Lovelace personnalisée pour Home Assistant. Une seule carte dont le
 comportement se choisit avec `card_type` dans un formulaire de configuration
 graphique. La plupart des types tracent des graphiques mensuels en barres
@@ -210,6 +212,54 @@ le total du logement. Configuration :
   réel, autoconsommation PV comprise.
 - `rooms` : jusqu'à 10 pièces, chacune avec un `name` libre, sa propre
   `entity` d'énergie et une `power_entity` instantanée facultative.
+
+#### Détection automatique
+
+Au lieu d'énumérer les pièces à la main, la carte peut les trouver seule.
+Activez **Détecter les pièces automatiquement** dans l'éditeur, ou réglez
+`rooms_auto: true`.
+
+Un capteur devient une pièce s'il a la classe d'appareil `energy` et une
+state class `total` ou `total_increasing`, autrement dit s'il s'agit d'un
+vrai compteur. Eux seuls portent la statistique `change` avec laquelle la
+carte calcule. Pour chacun, la carte cherche un capteur de puissance dont
+l'identifiant partage la même racine une fois le dernier mot retiré : ainsi
+`sensor.wallbox_strom_energie` est associé à
+`sensor.wallbox_strom_leistung` et la valeur instantanée en watts apparaît à
+côté du nom. Le nom provient du `friendly_name` du capteur, sans le mot
+d'énergie final.
+
+Toujours exclus, sans configuration :
+
+- les `total_entity`, `pv_entity` et `feedin_entity` définis plus haut ;
+  comptés comme pièces, ils rendraient les parts en pourcentage absurdes
+- les variantes de période du même compteur, reconnues à un mot comme
+  `today`, `heute`, `daily`, `month`, `monat`, `year` ou `jahr` dans
+  l'identifiant. Les compteurs utilitaires portent la même classe d'appareil
+  et listeraient deux fois la même consommation
+- tout ce qui n'est pas un compteur, par exemple un simple capteur de mesure
+
+Deux filtres facultatifs :
+
+- `rooms_auto_include` : uniquement les entités dont l'identifiant ou le nom
+  contient ce texte.
+- `rooms_auto_exclude` : identifiants d'entité ou fragments de texte séparés
+  par des virgules, à écarter.
+
+L'éditeur affiche chaque correspondance avec son identifiant pendant que
+vous tapez ; vous voyez donc l'effet d'un filtre avant d'enregistrer. Quand
+la détection automatique est active, la liste manuelle `rooms` est ignorée ;
+en la désactivant, la liste revient inchangée.
+
+```yaml
+type: custom:energy-charts-by-lutarym
+card_type: rooms
+rooms_auto: true
+rooms_auto_exclude: sensor.refrigerateur_energie
+total_entity: sensor.grid_import
+pv_entity: sensor.pv_ertrag
+feedin_entity: sensor.pv_feedin
+```
 
 ## Installation via HACS
 
