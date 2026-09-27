@@ -2,7 +2,7 @@
 
 **English** · [Deutsch](README.de.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.0.1 · [Changelog](CHANGELOG.md)
+Version 2.1.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card for Home Assistant. A single card whose behaviour is
 chosen via `card_type` in a visual configuration form. Most types draw
@@ -196,9 +196,11 @@ the house total. Configuration:
   `entity`, and an optional live `power_entity`.
 - `rooms_columns`: `1` (default), `2` or `3`. Lays the rooms out side by
   side instead of below each other, which keeps the card compact when many
-  rooms are listed. From two columns on, the bar moves below the name and
-  values so each cell stays readable. A card narrower than roughly 220px
-  per column falls back to fewer columns on its own.
+  rooms are listed. A card narrower than roughly 220px per column falls
+  back to fewer columns on its own.
+- Below the list sits a share bar: all rooms next to each other in one
+  strip, each room in its own colour, with the colour-to-room key
+  underneath. It shows at a glance how total consumption splits up.
 
 #### Automatic detection
 

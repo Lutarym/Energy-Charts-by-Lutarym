@@ -52,7 +52,7 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.0.1";
+const CARD_VERSION = "2.1.0";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -1200,7 +1200,11 @@ class EnergyChartsByLutarym extends HTMLElement {
         color: lutarymSafeColor(config.color, preset.color),
       };
       if (changed) { this._roomsData = null; this._lastFetch = 0; }
-      if (changed && this._hass && (this._config.total_entity || this._effectiveRooms().length)) this._fetchRooms();
+      // roomsAuto muss hier mit rein: die Bereiche sind noch nicht geladen,
+      // _effectiveRooms() ist also leer, und ohne Gesamtzaehler kaeme der
+      // Abruf sonst nie zustande. _fetchRooms holt die Bereiche selbst.
+      if (changed && this._hass
+          && (this._config.total_entity || this._config.roomsAuto || this._effectiveRooms().length)) this._fetchRooms();
       this._render();
       return;
     }
@@ -1314,7 +1318,7 @@ class EnergyChartsByLutarym extends HTMLElement {
       return;
     }
     if (this._isRooms) {
-      if ((this._config?.total_entity || this._effectiveRooms().length)
+      if ((this._config?.total_entity || this._config?.roomsAuto || this._effectiveRooms().length)
           && Date.now() - this._lastFetch > 15 * 60 * 1000) {
         this._fetchRooms();
       } else if (this._roomsData) {
@@ -2425,6 +2429,18 @@ class EnergyChartsByLutarym extends HTMLElement {
     let rowsHtml = '';
     let otherHtml = '';
     let splitHtml = '';
+    let shareHtml = '';
+
+    // Segmentfarben des Gesamtbalkens. Der goldene Winkel verteilt die
+    // Farbtoene gleichmaessig ueber den Kreis, die wechselnde Helligkeit
+    // haelt zusaetzlich benachbarte Segmente auseinander - Farbe allein
+    // reicht nicht, wenn jemand Farben schlecht unterscheidet.
+    const segColor = (i) => {
+      const hue = Math.round((i * 137.508) % 360);
+      const sat = [64, 72, 50][i % 3];
+      const lig = [56, 43, 68][i % 3];
+      return `hsl(${hue}, ${sat}%, ${lig}%)`;
+    };
 
     const roomsCfg = this._effectiveRooms();
     if (!cfg.total_entity && !roomsCfg.length) {
@@ -2506,6 +2522,31 @@ class EnergyChartsByLutarym extends HTMLElement {
         </div>
         ${bar(other, true)}
       </div>` : '';
+
+      // Gesamtbalken: alle Anteile nebeneinander in einem Streifen, darunter
+      // die Zuordnung Farbe zu Raum. Die Prozentwerte stehen schon in den
+      // Zeilen, deshalb nur Punkt und Name.
+      const segs = [];
+      if (base && base > 0) {
+        paired.forEach((room, i) => {
+          if (room.kwh === null || room.kwh <= 0) return;
+          segs.push({ name: room.name, pct: (room.kwh / base) * 100, color: segColor(i) });
+        });
+      }
+      if (other !== null && other > 0 && data.total > 0) {
+        segs.push({ name: t(hass, 'rmOtherLabel'), pct: (other / data.total) * 100,
+                    color: 'var(--secondary-text-color)' });
+      }
+      if (segs.length) {
+        shareHtml = `<div class="rm-share">
+          <div class="rm-sharebar">${segs.map(s =>
+            `<div class="rm-seg" style="width:${s.pct}%;background:${s.color}" title="${lutarymEsc(s.name)} ${fmt(s.pct, 1)} %"></div>`
+          ).join('')}</div>
+          <div class="rm-legend">${segs.map(s =>
+            `<span class="rm-leg"><i style="background:${s.color}"></i>${lutarymEsc(s.name)}</span>`
+          ).join('')}</div>
+        </div>`;
+      }
     } else {
       rowsHtml = roomsCfg.map(r => `<div class="rm-row">
           <div class="rm-line">
@@ -2555,6 +2596,14 @@ class EnergyChartsByLutarym extends HTMLElement {
         .rm-other { border-top:1px solid var(--divider-color, rgba(128,128,128,.2)); margin-top:6px; padding-top:9px; }
         .rm-other .rm-name { font-style:italic; color:var(--secondary-text-color); }
         .rm-empty { color:var(--secondary-text-color); font-size:.9rem; padding:8px 0; }
+        /* Gesamtbalken ganz unten: ein Streifen ueber die volle Breite,
+           je Raum ein Segment in eigener Farbe. */
+        .rm-share { margin-top:14px; padding-top:14px; border-top:1px solid var(--divider-color, rgba(128,128,128,.2)); }
+        .rm-sharebar { display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--divider-color, rgba(128,128,128,.2)); }
+        .rm-seg { height:100%; min-width:1px; }
+        .rm-legend { display:flex; flex-wrap:wrap; gap:5px 14px; margin-top:10px; }
+        .rm-leg { display:inline-flex; align-items:center; gap:5px; font-size:.72rem; color:var(--secondary-text-color); white-space:nowrap; }
+        .rm-leg i { width:8px; height:8px; border-radius:2px; flex:0 0 auto; }
       </style>
       <ha-card>
         <div class="rm-title">${titleText}</div>
@@ -2566,6 +2615,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         <div class="rm-divider"></div>
         <div class="rm-rows">${rowsHtml}</div>
         ${otherHtml}
+        ${shareHtml}
       </ha-card>`;
   }
 
@@ -3226,8 +3276,12 @@ class EnergyChartsByLutarym extends HTMLElement {
       const nRows = Math.ceil(n / cols) + (cfg.total_entity && n ? 1 : 0);
       const rowH = cols > 1 ? 46 : 32;
       const hasSplit = !!(cfg.total_entity && cfg.pvEntity && cfg.feedinEntity);
+      // Gesamtbalken unten: Trenner, Streifen und die Legende, deren
+      // Zeilenzahl von der Kartenbreite abhaengt.
+      const perLegRow = Math.max(1, Math.floor((this._width || 400) / 110));
+      const share = n ? (28 + 12 + 10 + Math.ceil((n + 1) / perLegRow) * 18) : 0;
       return 32 + (cfg.titleFontSize || 14) * 1.3 + 14
-           + (hasSplit ? 66 : 60) + 29 + nRows * rowH;
+           + (hasSplit ? 66 : 60) + 29 + nRows * rowH + share;
     }
     const px = this._width || 400;
     const lp = this._layoutParams(px);

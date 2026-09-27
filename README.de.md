@@ -2,7 +2,7 @@
 
 [English](README.md) · **Deutsch** · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.0.1 · [Changelog](CHANGELOG.md)
+Version 2.1.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card für Home Assistant. Eine einzige Karte, deren Verhalten
 über `card_type` in einem grafischen Konfigurationsformular gewählt wird. Die
@@ -208,9 +208,11 @@ Hausverbrauch. Konfiguration:
   `entity` und optionaler Live-`power_entity`.
 - `rooms_columns`: `1` (Standard), `2` oder `3`. Ordnet die Räume
   nebeneinander statt untereinander an, was die Karte bei vielen Räumen
-  kompakt hält. Ab zwei Spalten rutscht der Balken unter Namen und Werte,
-  damit jede Zelle lesbar bleibt. Ist die Karte schmaler als etwa 220px je
-  Spalte, fällt sie von selbst auf weniger Spalten zurück.
+  kompakt hält. Ist die Karte schmaler als etwa 220px je Spalte, fällt sie
+  von selbst auf weniger Spalten zurück.
+- Unter der Liste steht ein Gesamtbalken: alle Räume nebeneinander in einem
+  Streifen, jeder Raum in eigener Farbe, darunter die Zuordnung von Farbe zu
+  Raum. Er zeigt auf einen Blick, wie sich der Gesamtverbrauch aufteilt.
 
 #### Automatische Erkennung
 

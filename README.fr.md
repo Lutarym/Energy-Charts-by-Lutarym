@@ -2,7 +2,7 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Français** · [日本語](README.ja.md)
 
-Version 2.0.1 · [Changelog](CHANGELOG.md)
+Version 2.1.0 · [Changelog](CHANGELOG.md)
 
 Carte Lovelace personnalisée pour Home Assistant. Une seule carte dont le
 comportement se choisit avec `card_type` dans un formulaire de configuration
@@ -214,10 +214,12 @@ le total du logement. Configuration :
   `entity` d'énergie et une `power_entity` instantanée facultative.
 - `rooms_columns` : `1` (par défaut), `2` ou `3`. Dispose les pièces côte à
   côte au lieu de les empiler, ce qui garde la carte compacte quand les
-  pièces sont nombreuses. À partir de deux colonnes, la barre passe sous le
-  nom et les valeurs afin que chaque cellule reste lisible. Une carte plus
-  étroite qu'environ 220px par colonne revient d'elle-même à moins de
-  colonnes.
+  pièces sont nombreuses. Une carte plus étroite qu'environ 220px par
+  colonne revient d'elle-même à moins de colonnes.
+- Sous la liste se trouve une barre de répartition : toutes les pièces côte
+  à côte dans un seul ruban, chacune dans sa couleur, avec la légende
+  couleur-pièce en dessous. Elle montre d'un coup d'œil comment se répartit
+  la consommation totale.
 
 #### Détection automatique
 
