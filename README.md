@@ -200,14 +200,26 @@ the house total. Configuration:
 Instead of listing rooms by hand, the card can find them itself. Switch on
 **Detect rooms automatically** in the editor, or set `rooms_auto: true`.
 
-A sensor becomes a room when it has device class `energy` and a state class
-of `total` or `total_increasing`, i.e. when it is a real meter. Only those
-carry the `change` statistic the card computes with. For each one the card
-looks for a power sensor whose entity ID shares the same stem after the
-trailing word is removed, so `sensor.wallbox_strom_energie` pairs up with
-`sensor.wallbox_strom_leistung` and the live watt value appears next to the
-room name. The name comes from the sensor's `friendly_name` with the
-trailing energy word dropped.
+A meter qualifies when it has device class `energy` and a state class of
+`total` or `total_increasing`. Only those carry the `change` statistic the
+card computes with. The qualifying meters are then **grouped by the area**
+they are assigned to in Home Assistant, either directly or through their
+device, and one row is drawn per area: the row name is the area name, its
+kWh is the sum of that area's meters, and the live watt value is the sum of
+their power sensors. A power sensor is matched to a meter when both entity
+IDs share the same stem after the trailing word is removed, so
+`sensor.wallbox_strom_energie` pairs up with
+`sensor.wallbox_strom_leistung`.
+
+Meters without an area are left out. Their consumption is not lost: with a
+`total_entity` set, it shows up in the "Other" row, which is the difference
+between the house total and the listed rooms.
+
+The area assignment is read once per card through
+`config/area_registry/list`, `config/device_registry/list` and
+`config/entity_registry/list`. These three are not admin-only, unlike the
+create and update commands of the same registries. If they cannot be read,
+the card falls back to one row per meter and says so in the editor.
 
 Always excluded, without configuration:
 

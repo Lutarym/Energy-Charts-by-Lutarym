@@ -213,14 +213,27 @@ Statt die Räume von Hand einzutragen, kann die Karte sie selbst finden. Im
 Editor **Räume automatisch erkennen** einschalten oder `rooms_auto: true`
 setzen.
 
-Ein Sensor wird zum Raum, wenn er die Geräteklasse `energy` und eine
-State-Class `total` oder `total_increasing` hat, also ein echter Zähler ist.
-Nur für diese gibt es die `change`-Statistik, mit der die Karte rechnet. Zu
-jedem sucht die Karte einen Leistungssensor, dessen Entity-ID nach dem
-Abschneiden des letzten Wortes denselben Stamm hat. So findet
-`sensor.wallbox_strom_energie` seinen Partner `sensor.wallbox_strom_leistung`
-und der Live-Wattwert erscheint neben dem Raumnamen. Der Name stammt aus dem
-`friendly_name` des Sensors, ohne das abschließende Energie-Wort.
+Ein Zähler kommt in Frage, wenn er die Geräteklasse `energy` und eine
+State-Class `total` oder `total_increasing` hat. Nur für diese gibt es die
+`change`-Statistik, mit der die Karte rechnet. Die passenden Zähler werden
+dann **nach dem Bereich gruppiert**, dem sie in Home Assistant zugeordnet
+sind, direkt oder über ihr Gerät. Je Bereich entsteht eine Zeile: der Name
+ist der Bereichsname, die kWh sind die Summe der Zähler dieses Bereichs, und
+der Live-Wattwert ist die Summe ihrer Leistungssensoren. Ein Leistungssensor
+gehört zu einem Zähler, wenn beide Entity-IDs nach dem Abschneiden des
+letzten Wortes denselben Stamm haben, so findet
+`sensor.wallbox_strom_energie` seinen Partner
+`sensor.wallbox_strom_leistung`.
+
+Zähler ohne Bereich bleiben außen vor. Ihr Verbrauch geht nicht verloren:
+mit gesetzter `total_entity` erscheint er in der Zeile "Sonstige", die die
+Differenz zwischen Hausverbrauch und den gelisteten Räumen ist.
+
+Die Bereichszuordnung wird einmal je Karte über
+`config/area_registry/list`, `config/device_registry/list` und
+`config/entity_registry/list` gelesen. Diese drei sind nicht adminpflichtig,
+anders als die Schreibbefehle derselben Registries. Sind sie nicht lesbar,
+fällt die Karte auf eine Zeile je Zähler zurück und sagt das im Editor.
 
 Immer ausgeschlossen, ohne Konfiguration:
 

@@ -81,7 +81,7 @@ const I18N = {
     rmPowerEntityLabel: 'Live power entity (optional)',
     rmAddRoomLabel: '+ Add room',
     rmAutoLabel: 'Detect rooms automatically',
-    rmAutoHint: 'Takes every sensor with device class "energy" that is a real meter, pairs it with a matching power sensor, and replaces the list below.',
+    rmAutoHint: 'Groups every sensor with device class "energy" that is a real meter by the area it is assigned to in Home Assistant, and replaces the list below. Meters without an area are left out; their consumption shows up in the "Other" row.',
     rmAutoIncludeLabel: 'Only entities containing',
     rmAutoIncludeHint: 'Optional filter on entity ID or name. Leave empty for all.',
     rmAutoExcludeLabel: 'Exclude',
@@ -89,6 +89,8 @@ const I18N = {
     rmAutoFound: '{count} entities found',
     rmAutoNone: 'No matching entities found.',
     rmAutoListHidden: 'The manual list is inactive while automatic detection is on.',
+    rmAutoMeters: '{count} meters',
+    rmAutoNoAreas: 'Areas could not be read, so every meter is its own row.',
     ovDefaultTitle: 'Electricity Overview',
     ovNoStatsYet: 'No statistics data available yet.',
     ovWsError: 'WebSocket error: {msg}',
@@ -211,7 +213,7 @@ const I18N = {
     rmPowerEntityLabel: 'Live-Leistung-Entity (optional)',
     rmAddRoomLabel: '+ Raum hinzufügen',
     rmAutoLabel: 'Räume automatisch erkennen',
-    rmAutoHint: 'Nimmt jeden Sensor mit Geräteklasse "energy", der ein echter Zähler ist, paart ihn mit einem passenden Leistungssensor und ersetzt damit die Liste unten.',
+    rmAutoHint: 'Gruppiert jeden Sensor mit Geräteklasse "energy", der ein echter Zähler ist, nach dem Bereich, dem er in Home Assistant zugeordnet ist, und ersetzt damit die Liste unten. Zähler ohne Bereich bleiben außen vor; ihr Verbrauch erscheint in der Zeile "Sonstige".',
     rmAutoIncludeLabel: 'Nur Entities, die enthalten',
     rmAutoIncludeHint: 'Optionaler Filter auf Entity-ID oder Name. Leer lassen für alle.',
     rmAutoExcludeLabel: 'Ausschließen',
@@ -219,6 +221,8 @@ const I18N = {
     rmAutoFound: '{count} Entities gefunden',
     rmAutoNone: 'Keine passenden Entities gefunden.',
     rmAutoListHidden: 'Die manuelle Liste ist inaktiv, solange die automatische Erkennung an ist.',
+    rmAutoMeters: '{count} Zähler',
+    rmAutoNoAreas: 'Die Bereiche waren nicht lesbar, deshalb ist jeder Zähler eine eigene Zeile.',
     ovDefaultTitle: 'Stromübersicht',
     ovNoStatsYet: 'Noch keine Statistikdaten vorhanden.',
     ovWsError: 'WebSocket-Fehler: {msg}',
@@ -341,7 +345,7 @@ const I18N = {
     rmPowerEntityLabel: 'Entité puissance instantanée (facultatif)',
     rmAddRoomLabel: '+ Ajouter une pièce',
     rmAutoLabel: 'Détecter les pièces automatiquement',
-    rmAutoHint: 'Prend chaque capteur de classe « energy » qui est un vrai compteur, l\'associe à un capteur de puissance correspondant et remplace la liste ci-dessous.',
+    rmAutoHint: 'Regroupe chaque capteur de classe « energy » qui est un vrai compteur selon la zone à laquelle il est rattaché dans Home Assistant, et remplace la liste ci-dessous. Les compteurs sans zone sont écartés ; leur consommation apparaît dans la ligne « Autres ».',
     rmAutoIncludeLabel: 'Seulement les entités contenant',
     rmAutoIncludeHint: 'Filtre facultatif sur l\'identifiant ou le nom de l\'entité. Laisser vide pour toutes.',
     rmAutoExcludeLabel: 'Exclure',
@@ -349,6 +353,8 @@ const I18N = {
     rmAutoFound: '{count} entités trouvées',
     rmAutoNone: 'Aucune entité correspondante trouvée.',
     rmAutoListHidden: 'La liste manuelle est inactive tant que la détection automatique est active.',
+    rmAutoMeters: '{count} compteurs',
+    rmAutoNoAreas: 'Les zones n\'ont pas pu être lues, chaque compteur forme donc sa propre ligne.',
     ovDefaultTitle: 'Aperçu électricité',
     ovNoStatsYet: 'Aucune donnée statistique disponible pour le moment.',
     ovWsError: 'Erreur WebSocket : {msg}',
@@ -471,7 +477,7 @@ const I18N = {
     rmPowerEntityLabel: '現在の消費電力エンティティ（任意）',
     rmAddRoomLabel: '＋ 部屋を追加',
     rmAutoLabel: '部屋を自動的に検出',
-    rmAutoHint: 'デバイスクラスが「energy」で実際の積算計であるセンサーをすべて取得し、対応する電力センサーと組み合わせて、下のリストを置き換えます。',
+    rmAutoHint: 'デバイスクラスが「energy」で実際の積算計であるセンサーを、Home Assistant で割り当てられたエリアごとにまとめ、下のリストを置き換えます。エリアが未設定の計器は対象外で、その使用量は「その他」の行に含まれます。',
     rmAutoIncludeLabel: '次を含むエンティティのみ',
     rmAutoIncludeHint: 'エンティティIDまたは名前に対する任意のフィルターです。空欄ですべてが対象になります。',
     rmAutoExcludeLabel: '除外',
@@ -479,6 +485,8 @@ const I18N = {
     rmAutoFound: '{count} 件のエンティティが見つかりました',
     rmAutoNone: '該当するエンティティが見つかりません。',
     rmAutoListHidden: '自動検出が有効な間、手動のリストは使われません。',
+    rmAutoMeters: '計器 {count} 台',
+    rmAutoNoAreas: 'エリアを読み取れなかったため、各計器がそれぞれ1行になります。',
     ovDefaultTitle: '電力概要',
     ovNoStatsYet: '統計データがまだありません。',
     ovWsError: 'WebSocketエラー：{msg}',
@@ -762,10 +770,38 @@ function lutarymRoomName(friendly, fallbackId) {
   return words.join(' ') || fallbackId || '';
 }
 
+// Findet die in Frage kommenden Zaehler und gruppiert sie nach dem
+// Bereich, dem sie in Home Assistant zugeordnet sind. areaOf bildet
+// entity_id auf {id, name} ab; fehlt die Zuordnung, bleibt der Zaehler
+// aussen vor - sein Verbrauch steckt dann in der Zeile "Sonstige", die
+// ohnehin die Differenz zum Gesamtzaehler ist.
+// Baut entity_id -> {id, name} des zugeordneten Bereichs. Die drei
+// list-Kommandos sind nicht adminpflichtig (anders als create/update/delete)
+// und liefern, was das hass-Objekt selbst nicht enthaelt. Eine Entity haengt
+// entweder direkt an einem Bereich oder ueber ihr Geraet.
+async function lutarymLoadAreas(hass) {
+  const [areas, devices, entities] = await Promise.all([
+    hass.callWS({ type: 'config/area_registry/list' }),
+    hass.callWS({ type: 'config/device_registry/list' }),
+    hass.callWS({ type: 'config/entity_registry/list' }),
+  ]);
+  const areaName = new Map((areas || []).map(a => [a.area_id, a.name]));
+  const devArea  = new Map((devices || []).map(d => [d.id, d.area_id]));
+  const map = new Map();
+  for (const e of entities || []) {
+    const aid = e.area_id ?? (e.device_id ? devArea.get(e.device_id) : null);
+    if (!aid) continue;
+    const nm = areaName.get(aid);
+    if (nm) map.set(e.entity_id, { id: aid, name: nm });
+  }
+  return map;
+}
+
 function lutarymDetectRooms(hass, opts) {
   const states = hass && hass.states;
   if (!states) return [];
   const o = opts || {};
+  const areaOf = o.areaOf || null;
   const inc = String(o.include || '').trim().toLowerCase();
   const exTerms = String(o.exclude || '').split(',')
     .map(x => x.trim().toLowerCase()).filter(Boolean);
@@ -797,13 +833,35 @@ function lutarymDetectRooms(hass, opts) {
     if (inc && !lowId.includes(inc) && !lowNm.includes(inc)) continue;
     if (skipPeriods && objId.toLowerCase().split('_').some(w => LUT_PERIOD_WORDS.includes(w))) continue;
     found.push({
-      name: lutarymRoomName(name, objId),
+      label: lutarymRoomName(name, objId),
       entity: id,
       power_entity: powerByStem.get(lutarymStem(id, LUT_ENERGY_TAIL)) || '',
     });
   }
-  found.sort((a, b) => a.name.localeCompare(b.name));
-  return found;
+
+  // Ohne Bereichszuordnung bleibt nur die flache Liste: jeder Zaehler ist
+  // dann seine eigene Zeile. Das ist der Zustand, wenn die Registry nicht
+  // erreichbar war.
+  if (!areaOf) {
+    found.sort((a, b) => a.label.localeCompare(b.label));
+    return found.map(f => ({
+      name: f.label, entities: [f.entity],
+      power_entities: f.power_entity ? [f.power_entity] : [],
+    }));
+  }
+
+  const byArea = new Map();
+  for (const f of found) {
+    const area = areaOf.get(f.entity);
+    if (!area) continue;  // keinem Bereich zugeordnet
+    let g = byArea.get(area.id);
+    if (!g) { g = { name: area.name, entities: [], power_entities: [] }; byArea.set(area.id, g); }
+    g.entities.push(f.entity);
+    if (f.power_entity) g.power_entities.push(f.power_entity);
+  }
+  const groups = [...byArea.values()];
+  groups.sort((a, b) => a.name.localeCompare(b.name));
+  return groups;
 }
 
 function presetInfo(hass, cardType) {
@@ -1241,7 +1299,8 @@ class EnergyChartsByLutarym extends HTMLElement {
         // aufbauen, auch wenn sich keine der konfigurierten Leistungs-
         // Entities geruehrt hat.
         const sig = this._effectiveRooms()
-          .map(r => r.power_entity ? (hass?.states?.[r.power_entity]?.state ?? '') : '')
+          .map(r => (r.power_entities || [])
+            .map(pe => hass?.states?.[pe]?.state ?? '').join(','))
           .join('|');
         if (sig !== this._roomsWattSig) {
           this._roomsWattSig = sig;
@@ -1695,6 +1754,35 @@ class EnergyChartsByLutarym extends HTMLElement {
   }
 
   // ── Rooms mode: yearly kWh per room + total ──
+  // Jahres-kWh fuer mehrere Zaehler in EINEM Aufruf. Bei nach Bereichen
+  // gruppierten Raeumen kommen leicht zwanzig Zaehler zusammen; einzeln
+  // abgefragt waeren das ebenso viele Rundreisen.
+  async _roomsYearKwhBatch(ids) {
+    const list = [...new Set(ids.filter(Boolean))];
+    const out = new Map();
+    if (!list.length) return out;
+    const year = new Date().getFullYear();
+    const result = await this._hass.callWS({
+      type:          'recorder/statistics_during_period',
+      start_time:    new Date(year, 0, 1).toISOString(),
+      end_time:      new Date(year + 1, 0, 1).toISOString(),
+      statistic_ids: list,
+      period:        'month',
+      units:         { energy: 'kWh' },
+      types:         ['change'],
+    });
+    for (const id of list) {
+      // Nur Punkte des abgefragten Jahres: die end_time-Grenze der
+      // Recorder-API kann den Januar des FOLGEJAHRS mitliefern.
+      const pts = (result?.[id] ?? []).filter(p => new Date(p.start).getFullYear() === year);
+      if (!pts.length) { out.set(id, null); continue; }
+      const sum = pts.reduce((a, p) =>
+        a + (typeof p.change === 'number' && p.change >= 0 ? p.change : 0), 0);
+      out.set(id, sum > 0 ? sum : null);
+    }
+    return out;
+  }
+
   async _roomYearKwh(entity) {
     if (!entity) return null;
     const now = new Date();
@@ -1716,16 +1804,48 @@ class EnergyChartsByLutarym extends HTMLElement {
     return total > 0 ? total : null;
   }
 
+  // Bereichszuordnung aus der Registry. Die drei list-Kommandos brauchen
+  // keine Adminrechte (anders als create/update/delete), sind aber nicht
+  // Teil des hass-Objekts und muessen einzeln geholt werden. Eine Entity
+  // haengt entweder direkt an einem Bereich oder ueber ihr Geraet.
+  async _loadAreas() {
+    if (this._areaOf) return this._areaOf;
+    if (this._areaLoading) return null;
+    this._areaLoading = true;
+    try {
+      this._areaOf = await lutarymLoadAreas(this._hass);
+      return this._areaOf;
+    } catch (e) {
+      // Aeltere Kerne oder eingeschraenkte Rechte: ohne Bereiche faellt die
+      // Erkennung auf eine Zeile je Zaehler zurueck.
+      console.warn('[energy-charts-by-lutarym] Bereichsregistry nicht lesbar', e);
+      this._areaOf = null;
+      this._areaFailed = true;
+      return null;
+    } finally {
+      this._areaLoading = false;
+    }
+  }
+
   // Die tatsaechlich anzuzeigenden Raeume. Bei aktiver Automatik ersetzt
   // die Erkennung die konfigurierte Liste; das Ergebnis wird gepuffert und
   // nur neu ermittelt, wenn sich Filter, Referenz-Entities oder die Zahl
   // der bekannten Entities aendern.
   _effectiveRooms() {
     const cfg = this._config;
-    if (!cfg?.roomsAuto) return cfg?.rooms || [];
+    // Manuell gepflegte Raeume haben je eine Entity; intern arbeitet alles
+    // mit Listen, damit ein Bereich mehrere Zaehler buendeln kann.
+    if (!cfg?.roomsAuto) {
+      return (cfg?.rooms || []).map(r => ({
+        name: r.name,
+        entities: r.entity ? [r.entity] : [],
+        power_entities: r.power_entity ? [r.power_entity] : [],
+      }));
+    }
     if (!this._hass?.states) return [];
     const sig = [cfg.autoInclude, cfg.autoExclude, cfg.total_entity,
                  cfg.pvEntity, cfg.feedinEntity,
+                 this._areaOf ? this._areaOf.size : (this._areaFailed ? 'x' : '-'),
                  Object.keys(this._hass.states).length].join('|');
     if (this._autoSig !== sig) {
       this._autoSig = sig;
@@ -1736,25 +1856,46 @@ class EnergyChartsByLutarym extends HTMLElement {
         // unbrauchbar machen.
         exclude: [cfg.autoExclude, cfg.total_entity, cfg.pvEntity, cfg.feedinEntity]
           .filter(Boolean).join(','),
+        areaOf: this._areaOf,
       });
     }
     return this._autoRooms || [];
   }
 
   async _fetchRooms() {
-    if (!this._hass || (!this._config?.total_entity && !this._effectiveRooms().length)) return;
+    if (!this._hass) return;
     if (this._roomsLoading) return;
+    // Bereichszuordnung muss vor der Erkennung stehen, sonst gruppiert der
+    // erste Durchlauf noch nicht.
+    if (this._config?.roomsAuto && !this._areaOf && !this._areaFailed) {
+      await this._loadAreas();
+      this._autoSig = null;
+    }
+    if (!this._config?.total_entity && !this._effectiveRooms().length) return;
     this._roomsLoading = true;
     this._lastFetch = Date.now();
     try {
       const roomList = this._effectiveRooms();
       const wantPv = !!(this._config.total_entity && this._config.pvEntity && this._config.feedinEntity);
-      const [grid, pv, feed] = await Promise.all([
-        this._config.total_entity ? this._roomYearKwh(this._config.total_entity) : Promise.resolve(null),
-        wantPv ? this._roomYearKwh(this._config.pvEntity) : Promise.resolve(null),
-        wantPv ? this._roomYearKwh(this._config.feedinEntity) : Promise.resolve(null),
-      ]);
-      const roomKwh = await Promise.all(roomList.map(r => this._roomYearKwh(r.entity)));
+      // Referenzzaehler und saemtliche Raumzaehler in einem Aufruf.
+      const refs = [this._config.total_entity,
+                    wantPv ? this._config.pvEntity : '',
+                    wantPv ? this._config.feedinEntity : ''].filter(Boolean);
+      const kwh = await this._roomsYearKwhBatch(
+        [...refs, ...roomList.flatMap(r => r.entities)]);
+      const grid = this._config.total_entity ? (kwh.get(this._config.total_entity) ?? null) : null;
+      const pv   = wantPv ? (kwh.get(this._config.pvEntity) ?? null) : null;
+      const feed = wantPv ? (kwh.get(this._config.feedinEntity) ?? null) : null;
+      // Ein Raum kann mehrere Zaehler buendeln; null heisst "keine Daten",
+      // deshalb wird erst summiert, wenn wenigstens einer Werte liefert.
+      const roomKwh = roomList.map(r => {
+        let sum = null;
+        for (const id of r.entities) {
+          const v = kwh.get(id);
+          if (v != null) sum = (sum ?? 0) + v;
+        }
+        return sum;
+      });
       // True house consumption = grid import + PV self-consumed (PV − feed-in).
       let totalKwh = grid;
       let pvSelf = null;
@@ -1771,7 +1912,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         // brach, sobald im Editor waehrend des laufenden Abrufs ein Raum
         // eingefuegt oder entfernt wurde.
         rooms: roomList.map((r, i) => ({
-          name: r.name, power_entity: r.power_entity, kwh: roomKwh[i],
+          name: r.name, power_entities: r.power_entities, kwh: roomKwh[i],
         })),
       };
     } catch (e) {
@@ -2255,16 +2396,22 @@ class EnergyChartsByLutarym extends HTMLElement {
       }
       const bar = (pct) => `<div class="rm-barwrap"><div class="rm-bar" style="width:${Math.min(100, pct)}%;background:${accent}"></div></div>`;
 
-      // Pair each room with its config (for power_entity) and sort by yearly
-      // consumption, largest first. Rooms without data (null) go last.
+      // Nach Jahresverbrauch sortieren, groesster zuerst; Raeume ohne
+      // Daten (null) stehen hinten.
       const paired = (data.rooms || []).slice()
         .sort((a, b) => (b.kwh ?? -1) - (a.kwh ?? -1));
 
       rowsHtml = paired.map(room => {
+        // Ein Bereich kann mehrere Leistungssensoren haben; angezeigt wird
+        // ihre Summe.
         let wattHtml = '';
-        if (room.power_entity && hass?.states?.[room.power_entity]) {
-          const w = parseFloat(hass.states[room.power_entity].state);
-          if (Number.isFinite(w)) wattHtml = `<span class="rm-watt" style="color:${accent}">${fmt(w, 0, 1)} W</span>`;
+        let watt = null;
+        for (const pe of room.power_entities || []) {
+          const w = parseFloat(hass?.states?.[pe]?.state);
+          if (Number.isFinite(w)) watt = (watt ?? 0) + w;
+        }
+        if (watt !== null) {
+          wattHtml = `<span class="rm-watt" style="color:${accent}">${fmt(watt, 0, 1)} W</span>`;
         }
         let kwhStr = '–', pctStr = '–', pct = 0;
         if (room.kwh !== null) {
@@ -3164,20 +3311,35 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
         'rooms_auto_exclude', cfg.rooms_auto_exclude,
       ));
 
+      // Bereichsregistry einmal nachladen und danach neu zeichnen. Ohne
+      // sie kann die Vorschau nicht gruppieren.
+      if (this._hass && !this._areaOf && !this._areaFailed && !this._areaLoading) {
+        this._areaLoading = true;
+        lutarymLoadAreas(this._hass).then(m => {
+          this._areaOf = m;
+        }).catch(() => {
+          this._areaFailed = true;
+        }).finally(() => {
+          this._areaLoading = false;
+          this._render();
+        });
+      }
+
       // Trefferliste direkt im Editor: ohne sie filtert man blind.
       const found = this._hass ? lutarymDetectRooms(this._hass, {
         include: cfg.rooms_auto_include || '',
         exclude: [cfg.rooms_auto_exclude, cfg.total_entity, cfg.pv_entity, cfg.feedin_entity]
           .filter(Boolean).join(','),
+        areaOf: this._areaOf,
       }) : [];
       const box = document.createElement('div');
       box.className = 'editor-row';
       box.style.cssText = 'border:1px solid var(--divider-color,#e0e0e0);border-radius:8px;padding:10px;gap:6px;';
       const head = document.createElement('div');
       head.style.cssText = 'font-size:12px;font-weight:600;color:var(--secondary-text-color);';
-      head.textContent = found.length
-        ? t(hass, 'rmAutoFound', { count: found.length })
-        : t(hass, 'rmAutoNone');
+      head.textContent = this._areaLoading ? t(hass, 'loading')
+        : (found.length ? t(hass, 'rmAutoFound', { count: found.length })
+                        : t(hass, 'rmAutoNone'));
       box.appendChild(head);
       found.forEach(r => {
         const line = document.createElement('div');
@@ -3186,8 +3348,9 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
         nm.textContent = r.name;
         nm.style.cssText = 'color:var(--primary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
         const id = document.createElement('span');
-        id.textContent = r.entity + (r.power_entity ? ' + W' : '');
-        id.style.cssText = 'color:var(--secondary-text-color);font-family:monospace;font-size:11px;white-space:nowrap;';
+        id.textContent = t(hass, 'rmAutoMeters', { count: r.entities.length })
+          + (r.power_entities.length ? ' + W' : '');
+        id.style.cssText = 'color:var(--secondary-text-color);font-size:11px;white-space:nowrap;';
         line.appendChild(nm); line.appendChild(id);
         box.appendChild(line);
       });
@@ -3195,7 +3358,9 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
 
       const note = document.createElement('div');
       note.className = 'hint';
-      note.textContent = t(hass, 'rmAutoListHidden');
+      note.textContent = this._areaFailed
+        ? t(hass, 'rmAutoNoAreas') + ' ' + t(hass, 'rmAutoListHidden')
+        : t(hass, 'rmAutoListHidden');
       form.appendChild(note);
       return; // manuelle Liste und "Raum hinzufuegen" entfallen
     }

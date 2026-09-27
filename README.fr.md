@@ -219,15 +219,28 @@ Au lieu d'énumérer les pièces à la main, la carte peut les trouver seule.
 Activez **Détecter les pièces automatiquement** dans l'éditeur, ou réglez
 `rooms_auto: true`.
 
-Un capteur devient une pièce s'il a la classe d'appareil `energy` et une
-state class `total` ou `total_increasing`, autrement dit s'il s'agit d'un
-vrai compteur. Eux seuls portent la statistique `change` avec laquelle la
-carte calcule. Pour chacun, la carte cherche un capteur de puissance dont
-l'identifiant partage la même racine une fois le dernier mot retiré : ainsi
+Un compteur est retenu s'il a la classe d'appareil `energy` et une state
+class `total` ou `total_increasing`. Eux seuls portent la statistique
+`change` avec laquelle la carte calcule. Les compteurs retenus sont ensuite
+**regroupés par la zone** à laquelle ils sont rattachés dans Home Assistant,
+directement ou via leur appareil, et une ligne est tracée par zone : le nom
+est celui de la zone, les kWh sont la somme des compteurs de cette zone, et
+la valeur instantanée en watts la somme de leurs capteurs de puissance. Un
+capteur de puissance est associé à un compteur lorsque les deux
+identifiants partagent la même racine une fois le dernier mot retiré, ainsi
 `sensor.wallbox_strom_energie` est associé à
-`sensor.wallbox_strom_leistung` et la valeur instantanée en watts apparaît à
-côté du nom. Le nom provient du `friendly_name` du capteur, sans le mot
-d'énergie final.
+`sensor.wallbox_strom_leistung`.
+
+Les compteurs sans zone sont écartés. Leur consommation n'est pas perdue :
+avec une `total_entity` définie, elle apparaît dans la ligne « Autres », qui
+est l'écart entre le total du logement et les pièces listées.
+
+L'affectation aux zones est lue une fois par carte via
+`config/area_registry/list`, `config/device_registry/list` et
+`config/entity_registry/list`. Ces trois commandes ne sont pas réservées aux
+administrateurs, contrairement aux commandes d'écriture des mêmes
+registres. Si elles sont illisibles, la carte revient à une ligne par
+compteur et l'indique dans l'éditeur.
 
 Toujours exclus, sans configuration :
 
