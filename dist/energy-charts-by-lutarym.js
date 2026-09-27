@@ -91,6 +91,11 @@ const I18N = {
     rmAutoListHidden: 'The manual list is inactive while automatic detection is on.',
     rmAutoMeters: '{count} meters',
     rmAutoNoAreas: 'Areas could not be read, so every meter is its own row.',
+    rmColumnsLabel: 'Columns',
+    rmColumnsHint: 'Lays the rooms out side by side. Narrow cards automatically fall back to fewer columns.',
+    rmColumns1: '1 column',
+    rmColumns2: '2 columns',
+    rmColumns3: '3 columns',
     ovDefaultTitle: 'Electricity Overview',
     ovNoStatsYet: 'No statistics data available yet.',
     ovWsError: 'WebSocket error: {msg}',
@@ -223,6 +228,11 @@ const I18N = {
     rmAutoListHidden: 'Die manuelle Liste ist inaktiv, solange die automatische Erkennung an ist.',
     rmAutoMeters: '{count} Zähler',
     rmAutoNoAreas: 'Die Bereiche waren nicht lesbar, deshalb ist jeder Zähler eine eigene Zeile.',
+    rmColumnsLabel: 'Spalten',
+    rmColumnsHint: 'Ordnet die Räume nebeneinander an. Schmale Karten fallen automatisch auf weniger Spalten zurück.',
+    rmColumns1: '1 Spalte',
+    rmColumns2: '2 Spalten',
+    rmColumns3: '3 Spalten',
     ovDefaultTitle: 'Stromübersicht',
     ovNoStatsYet: 'Noch keine Statistikdaten vorhanden.',
     ovWsError: 'WebSocket-Fehler: {msg}',
@@ -355,6 +365,11 @@ const I18N = {
     rmAutoListHidden: 'La liste manuelle est inactive tant que la détection automatique est active.',
     rmAutoMeters: '{count} compteurs',
     rmAutoNoAreas: 'Les zones n\'ont pas pu être lues, chaque compteur forme donc sa propre ligne.',
+    rmColumnsLabel: 'Colonnes',
+    rmColumnsHint: 'Dispose les pièces côte à côte. Les cartes étroites reviennent automatiquement à moins de colonnes.',
+    rmColumns1: '1 colonne',
+    rmColumns2: '2 colonnes',
+    rmColumns3: '3 colonnes',
     ovDefaultTitle: 'Aperçu électricité',
     ovNoStatsYet: 'Aucune donnée statistique disponible pour le moment.',
     ovWsError: 'Erreur WebSocket : {msg}',
@@ -487,6 +502,11 @@ const I18N = {
     rmAutoListHidden: '自動検出が有効な間、手動のリストは使われません。',
     rmAutoMeters: '計器 {count} 台',
     rmAutoNoAreas: 'エリアを読み取れなかったため、各計器がそれぞれ1行になります。',
+    rmColumnsLabel: '列数',
+    rmColumnsHint: '部屋を横に並べます。幅の狭いカードでは自動的に列数が減ります。',
+    rmColumns1: '1列',
+    rmColumns2: '2列',
+    rmColumns3: '3列',
     ovDefaultTitle: '電力概要',
     ovNoStatsYet: '統計データがまだありません。',
     ovWsError: 'WebSocketエラー：{msg}',
@@ -840,9 +860,12 @@ function lutarymDetectRooms(hass, opts) {
   }
 
   // Ohne Bereichszuordnung bleibt nur die flache Liste: jeder Zaehler ist
-  // dann seine eigene Zeile. Das ist der Zustand, wenn die Registry nicht
-  // erreichbar war.
+  // dann seine eigene Zeile. Das gilt aber erst, wenn das Laden der
+  // Registry endgueltig gescheitert ist. Solange es noch laeuft, wird
+  // nichts zurueckgegeben - sonst zeigte die Karte fuer einen Moment
+  // Sensornamen und sprungartig danach die Bereiche.
   if (!areaOf) {
+    if (!o.flatFallback) return [];
     found.sort((a, b) => a.label.localeCompare(b.label));
     return found.map(f => ({
       name: f.label, entities: [f.entity],
@@ -1166,6 +1189,9 @@ class EnergyChartsByLutarym extends HTMLElement {
         roomsAuto,
         autoInclude,
         autoExclude,
+        // Nebeneinander statt untereinander. Bei 1 bleibt das bisherige
+        // einzeilige Layout, ab 2 rutscht der Balken unter den Namen.
+        roomsColumns: Math.min(3, Math.max(1, Number(config.rooms_columns) || 1)),
         entity: config.total_entity || (roomsIn.length || roomsAuto ? '__rooms__' : ''), // notConfigured check
         rooms: roomsIn.map(r => ({ name: r.name || '', entity: r.entity || '', power_entity: r.power_entity || '' })),
         title: config.title ?? presetInfo(this._hass, cardType).title,
@@ -1827,6 +1853,18 @@ class EnergyChartsByLutarym extends HTMLElement {
     }
   }
 
+  // Gewuenschte Spaltenzahl, begrenzt durch die verfuegbare Breite. Unter
+  // etwa 220px je Spalte wird die Zeile unleserlich, deshalb faellt die
+  // Karte auf schmalen Dashboards von selbst auf weniger Spalten zurueck -
+  // dieselbe Abstufung wie bei der Temperaturlinie.
+  _roomColumns() {
+    const want = this._config?.roomsColumns || 1;
+    if (want <= 1) return 1;
+    const px = this._width || 0;
+    if (!px) return want;                 // Breite noch unbekannt
+    return Math.max(1, Math.min(want, Math.floor(px / 220)));
+  }
+
   // Die tatsaechlich anzuzeigenden Raeume. Bei aktiver Automatik ersetzt
   // die Erkennung die konfigurierte Liste; das Ergebnis wird gepuffert und
   // nur neu ermittelt, wenn sich Filter, Referenz-Entities oder die Zahl
@@ -1857,6 +1895,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         exclude: [cfg.autoExclude, cfg.total_entity, cfg.pvEntity, cfg.feedinEntity]
           .filter(Boolean).join(','),
         areaOf: this._areaOf,
+        flatFallback: this._areaFailed === true,
       });
     }
     return this._autoRooms || [];
@@ -2332,8 +2371,12 @@ class EnergyChartsByLutarym extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display:block; width:100%; height:100%; box-sizing:border-box; ${this._appearanceCSSVars()} }
-        ha-card { width:100%; height:100%; box-sizing:border-box; padding:16px 18px; }
+        /* Keine feste Hoehe: overview und rooms bestimmen ihre Hoehe aus
+           dem Inhalt, passend zu rows:'auto'. min-height fuellt den Platz,
+           wenn doch eine feste Zeilenzahl vorgegeben ist, statt den Inhalt
+           abzuschneiden. */
+        :host { display:block; width:100%; box-sizing:border-box; ${this._appearanceCSSVars()} }
+        ha-card { width:100%; min-height:100%; box-sizing:border-box; padding:16px 18px; }
         .ov-title { font-size:${cfg.titleFontSize}px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--secondary-text-color); margin-bottom:14px; }
         .ov-hero { font-size:2.4rem; font-weight:600; line-height:1.05; color:var(--primary-text-color); font-variant-numeric:tabular-nums; }
         .ov-sub { font-size:.8rem; color:var(--secondary-text-color); margin-top:3px; }
@@ -2366,6 +2409,7 @@ class EnergyChartsByLutarym extends HTMLElement {
     const data = this._roomsData;
     const year = new Date().getFullYear();
     const accent = lutarymSafeColor(cfg.color, '#03a9f4');
+    const cols = this._roomColumns();
     const titleText = lutarymEsc(cfg.title || t(hass, 'rmDefaultTitle'));
     const fmt = (v, a, b) => Number(v).toLocaleString(undefined, { minimumFractionDigits: a, maximumFractionDigits: b ?? a });
 
@@ -2445,8 +2489,12 @@ class EnergyChartsByLutarym extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display:block; width:100%; height:100%; box-sizing:border-box; ${this._appearanceCSSVars()} }
-        ha-card { width:100%; height:100%; box-sizing:border-box; padding:16px 18px; }
+        /* Keine feste Hoehe: overview und rooms bestimmen ihre Hoehe aus
+           dem Inhalt, passend zu rows:'auto'. min-height fuellt den Platz,
+           wenn doch eine feste Zeilenzahl vorgegeben ist, statt den Inhalt
+           abzuschneiden. */
+        :host { display:block; width:100%; box-sizing:border-box; ${this._appearanceCSSVars()} }
+        ha-card { width:100%; min-height:100%; box-sizing:border-box; padding:16px 18px; }
         .rm-title { font-size:${cfg.titleFontSize}px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--secondary-text-color); margin-bottom:14px; }
         .rm-totlabel { font-size:.78rem; color:var(--secondary-text-color); margin-bottom:2px; }
         .rm-totval { font-size:1.7rem; font-weight:600; line-height:1.05; color:var(--primary-text-color); font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -2456,8 +2504,22 @@ class EnergyChartsByLutarym extends HTMLElement {
         .rm-headcell { display:flex; flex-direction:column; }
         .rm-headval { font-size:1.2rem; font-weight:600; color:var(--primary-text-color); font-variant-numeric:tabular-nums; line-height:1.05; white-space:nowrap; }
         .rm-headval-main { font-size:1.7rem; }
+        /* Ein Raster ueber die Raumzeilen. Bei einer Spalte verhaelt es
+           sich wie die bisherige Liste. */
+        .rm-rows { display:grid; grid-template-columns:repeat(${cols}, minmax(0, 1fr)); column-gap:18px; }
         .rm-row { display:grid; grid-template-columns:1fr 1fr auto auto; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--divider-color, rgba(128,128,128,.1)); }
         .rm-row:last-child { border-bottom:none; }
+        ${cols > 1 ? `
+        /* Mehrspaltig ist je Zelle zu wenig Platz fuer vier Felder
+           nebeneinander. Name, kWh und Prozent bleiben in einer Zeile,
+           der Balken rutscht darunter und nutzt die volle Zellbreite. */
+        .rm-row { grid-template-columns:1fr auto auto; row-gap:3px; align-items:baseline; }
+        .rm-row > .rm-barwrap { grid-column:1 / -1; }
+        /* Die Trennlinie gehoert jetzt zur Zelle, nicht zur Liste. */
+        .rm-rows > .rm-row:last-child { border-bottom:1px solid var(--divider-color, rgba(128,128,128,.1)); }
+        .rm-kwh { min-width:0; }
+        .rm-pct { min-width:0; }
+        ` : ''}
         .rm-namecell { display:flex; flex-direction:column; gap:1px; overflow:hidden; }
         .rm-name { font-size:.9rem; color:var(--primary-text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .rm-watt { font-size:.75rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -2478,7 +2540,7 @@ class EnergyChartsByLutarym extends HTMLElement {
           ${splitHtml}
         </div>
         <div class="rm-divider"></div>
-        ${rowsHtml}
+        <div class="rm-rows">${rowsHtml}</div>
         ${otherHtml}
       </ha-card>`;
   }
@@ -3134,10 +3196,14 @@ class EnergyChartsByLutarym extends HTMLElement {
     if (this._isRooms) {
       const cfg = this._config || {};
       const n = this._effectiveRooms().length;
-      const nRows = n + (cfg.total_entity && n ? 1 : 0);
+      const cols = this._roomColumns();
+      // Mehrspaltig sind es weniger Zeilen, dafuer ist jede hoeher, weil
+      // der Balken unter Namen und Werten sitzt.
+      const nRows = Math.ceil(n / cols) + (cfg.total_entity && n ? 1 : 0);
+      const rowH = cols > 1 ? 46 : 32;
       const hasSplit = !!(cfg.total_entity && cfg.pvEntity && cfg.feedinEntity);
       return 32 + (cfg.titleFontSize || 14) * 1.3 + 14
-           + (hasSplit ? 66 : 60) + 29 + nRows * 32;
+           + (hasSplit ? 66 : 60) + 29 + nRows * rowH;
     }
     const px = this._width || 400;
     const lp = this._layoutParams(px);
@@ -3148,19 +3214,31 @@ class EnergyChartsByLutarym extends HTMLElement {
     return Math.max(1, Math.ceil(this._estimatedPixelHeight() / 50));
   }
 
-  // For the newer "Sections" dashboards: grid height in rows (1 row ≈ 56px)
+  // Sections-Dashboard: Hoehe in Rasterzeilen (1 Zeile entspricht 56px).
+  //
+  // overview und rooms wachsen mit ihrem Inhalt - bei rooms haengt die
+  // Zeilenzahl an der Zahl der Raeume, die bei automatischer Erkennung
+  // erst nach dem Laden der Bereiche feststeht. Eine feste Zahl waere
+  // dann immer die von vorhin, deshalb 'auto': Home Assistant misst die
+  // tatsaechlich gerenderte Hoehe selbst. Das Balkendiagramm dagegen
+  // fuellt die vorgegebene Hoehe aus und bekommt weiter eine Zahl.
   getGridOptions() {
+    if (this._isOverview || this._isRooms) {
+      return { columns: 12, rows: 'auto', min_rows: 3 };
+    }
     const rows = Math.max(3, Math.ceil(this._estimatedPixelHeight() / 56));
-    return {
-      columns: 12,
-      rows,
-      min_rows: 3,
-    };
+    return { columns: 12, rows, min_rows: 3 };
   }
 
-  // Aeltere Home-Assistant-Versionen fragen diese Variante ab.
+  // Aeltere Home-Assistant-Versionen fragen diese Variante ab. Sie nutzt
+  // eigene Schluesselnamen, ein Durchreichen von getGridOptions wuerde
+  // dort nicht erkannt.
   getLayoutOptions() {
-    return this.getGridOptions();
+    if (this._isOverview || this._isRooms) {
+      return { grid_columns: 12, grid_rows: 'auto', grid_min_rows: 3 };
+    }
+    const rows = Math.max(3, Math.ceil(this._estimatedPixelHeight() / 56));
+    return { grid_columns: 12, grid_rows: rows, grid_min_rows: 3 };
   }
 }
 
@@ -3240,6 +3318,7 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
     delete preserved.rooms_auto;
     delete preserved.rooms_auto_include;
     delete preserved.rooms_auto_exclude;
+    delete preserved.rooms_columns;
     delete preserved.energy_entity;
     delete preserved.price_per_kwh;
     delete preserved.base_fee_yearly;
@@ -3295,6 +3374,18 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
       t(hass, 'editorTitle'), null, { text: {} }, 'title', cfg.title,
     ));
 
+    // Spaltenzahl: betrifft die Darstellung, deshalb vor der Frage,
+    // woher die Raeume kommen.
+    form.appendChild(this._row(
+      t(hass, 'rmColumnsLabel'), t(hass, 'rmColumnsHint'),
+      { select: { mode: 'dropdown', options: [
+        { value: '1', label: t(hass, 'rmColumns1') },
+        { value: '2', label: t(hass, 'rmColumns2') },
+        { value: '3', label: t(hass, 'rmColumns3') },
+      ] } },
+      'rooms_columns', String(cfg.rooms_columns ?? 1),
+    ));
+
     // ── Automatische Erkennung ──
     const auto = cfg.rooms_auto === true;
     form.appendChild(this._toggleRow(
@@ -3331,6 +3422,7 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
         exclude: [cfg.rooms_auto_exclude, cfg.total_entity, cfg.pv_entity, cfg.feedin_entity]
           .filter(Boolean).join(','),
         areaOf: this._areaOf,
+        flatFallback: this._areaFailed === true,
       }) : [];
       const box = document.createElement('div');
       box.className = 'editor-row';

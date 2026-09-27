@@ -212,6 +212,12 @@ le total du logement. Configuration :
   réel, autoconsommation PV comprise.
 - `rooms` : jusqu'à 10 pièces, chacune avec un `name` libre, sa propre
   `entity` d'énergie et une `power_entity` instantanée facultative.
+- `rooms_columns` : `1` (par défaut), `2` ou `3`. Dispose les pièces côte à
+  côte au lieu de les empiler, ce qui garde la carte compacte quand les
+  pièces sont nombreuses. À partir de deux colonnes, la barre passe sous le
+  nom et les valeurs afin que chaque cellule reste lisible. Une carte plus
+  étroite qu'environ 220px par colonne revient d'elle-même à moins de
+  colonnes.
 
 #### Détection automatique
 
@@ -342,6 +348,7 @@ previous_year_kwh: 4200   # valeur manuelle facultative
 
 # --- rooms uniquement ---
 total_entity: sensor.grid_import  # facultatif
+rooms_columns: 2                  # facultatif : 1 | 2 | 3
 pv_entity: sensor.pv_ertrag       # facultatif
 # feedin_entity: sensor.pv_feedin # facultatif (voir la section rooms)
 rooms:

@@ -186,6 +186,10 @@ EV充電器の月間充電電力量（kWh、月の合計）。任意の重ね描
   「その他」の行と割合に太陽光の自家消費を含む実際の使用量が反映されます。
 - `rooms`：最大10部屋。それぞれ自由な `name`、専用の電力量 `entity`、任意の
   現在値 `power_entity` を設定します。
+- `rooms_columns`：`1`（既定）、`2`、`3`。部屋を縦に並べる代わりに横に並べ、
+  部屋数が多いときもカードを小さく保ちます。2列以上ではバーが名前と数値の
+  下に移り、各セルが読みやすいままになります。1列あたりおよそ 220px を下回る
+  幅のカードでは、自動的に列数が減ります。
 
 #### 自動検出
 
@@ -309,6 +313,7 @@ previous_year_kwh: 4200   # 任意の手動入力
 
 # --- rooms のみ ---
 total_entity: sensor.grid_import  # 任意
+rooms_columns: 2                  # 任意：1 | 2 | 3
 pv_entity: sensor.pv_ertrag       # 任意
 # feedin_entity: sensor.pv_feedin # 任意（rooms の項を参照）
 rooms:

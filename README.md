@@ -194,6 +194,11 @@ the house total. Configuration:
   PV self-consumption.
 - `rooms`: up to 10 rooms, each with a freely chosen `name`, its own energy
   `entity`, and an optional live `power_entity`.
+- `rooms_columns`: `1` (default), `2` or `3`. Lays the rooms out side by
+  side instead of below each other, which keeps the card compact when many
+  rooms are listed. From two columns on, the bar moves below the name and
+  values so each cell stays readable. A card narrower than roughly 220px
+  per column falls back to fewer columns on its own.
 
 #### Automatic detection
 
@@ -319,6 +324,7 @@ previous_year_kwh: 4200   # optional manual override
 
 # --- rooms only ---
 total_entity: sensor.grid_import  # optional
+rooms_columns: 2                  # optional: 1 | 2 | 3
 pv_entity: sensor.pv_ertrag       # optional
 # feedin_entity: sensor.pv_feedin # optional (see rooms section)
 rooms:

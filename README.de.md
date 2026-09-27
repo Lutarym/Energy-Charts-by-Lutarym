@@ -206,6 +206,11 @@ Hausverbrauch. Konfiguration:
   den tatsächlichen Verbrauch einschließlich PV-Eigenverbrauch wieder.
 - `rooms`: bis zu 10 Räume, jeder mit frei wählbarem `name`, eigener Energie-
   `entity` und optionaler Live-`power_entity`.
+- `rooms_columns`: `1` (Standard), `2` oder `3`. Ordnet die Räume
+  nebeneinander statt untereinander an, was die Karte bei vielen Räumen
+  kompakt hält. Ab zwei Spalten rutscht der Balken unter Namen und Werte,
+  damit jede Zelle lesbar bleibt. Ist die Karte schmaler als etwa 220px je
+  Spalte, fällt sie von selbst auf weniger Spalten zurück.
 
 #### Automatische Erkennung
 
@@ -333,6 +338,7 @@ previous_year_kwh: 4200   # optionale manuelle Vorgabe
 
 # --- nur rooms ---
 total_entity: sensor.grid_import  # optional
+rooms_columns: 2                  # optional: 1 | 2 | 3
 pv_entity: sensor.pv_ertrag       # optional
 # feedin_entity: sensor.pv_feedin # optional (siehe Abschnitt rooms)
 rooms:
