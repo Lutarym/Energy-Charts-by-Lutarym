@@ -52,7 +52,7 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.0.0";
+const CARD_VERSION = "2.0.1";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -2410,6 +2410,14 @@ class EnergyChartsByLutarym extends HTMLElement {
     const year = new Date().getFullYear();
     const accent = lutarymSafeColor(cfg.color, '#03a9f4');
     const cols = this._roomColumns();
+    // Senkrechte Trenner zwischen den Spalten. Das Raster fuellt zeilenweise,
+    // die zweite Spalte sind also die Elemente 2, 2+cols, 2+2*cols und so
+    // weiter.
+    const colSep = cols > 1
+      ? Array.from({ length: cols - 1 }, (_, i) =>
+          `.rm-rows > .rm-row:nth-child(${cols}n+${i + 2}) { border-left:1px solid var(--divider-color, rgba(128,128,128,.18)); padding-left:16px; }`
+        ).join('\n        ')
+      : '';
     const titleText = lutarymEsc(cfg.title || t(hass, 'rmDefaultTitle'));
     const fmt = (v, a, b) => Number(v).toLocaleString(undefined, { minimumFractionDigits: a, maximumFractionDigits: b ?? a });
 
@@ -2438,7 +2446,18 @@ class EnergyChartsByLutarym extends HTMLElement {
           <div class="rm-headcell"><div class="rm-totlabel">${t(hass, 'rmGridLabel')}</div><div class="rm-headval" style="color:var(--error-color, #c62828)">${fmt(data.grid, 0, 1)}<span class="rm-totunit">kWh</span></div></div>
           <div class="rm-headcell"><div class="rm-totlabel">${t(hass, 'rmPvUsedLabel')}</div><div class="rm-headval" style="color:var(--success-color, #2e7d32)">${fmt(data.pvSelf, 0, 1)}<span class="rm-totunit">kWh</span></div></div>`;
       }
-      const bar = (pct) => `<div class="rm-barwrap"><div class="rm-bar" style="width:${Math.min(100, pct)}%;background:${accent}"></div></div>`;
+      // "Other" is only meaningful with a real total meter: total − listed rooms.
+      const hasRooms = !!(data.rooms && data.rooms.length);
+      const other = (hasTotal && hasRooms) ? Math.max(0, data.total - roomSum) : null;
+
+      // Die Balkenlaenge richtet sich nach dem groessten Eintrag, nicht nach
+      // dem Gesamtverbrauch. Sonst sind fast alle Balken gleich kurz und der
+      // Vergleich zwischen den Raeumen ist nicht mehr zu sehen.
+      const maxVal = Math.max(0, other ?? 0, ...(data.rooms || []).map(r => r.kwh ?? 0));
+      const bar = (v, muted) => {
+        const w = (maxVal > 0 && v !== null && v !== undefined) ? Math.min(100, (v / maxVal) * 100) : 0;
+        return `<div class="rm-bar${muted ? ' rm-otherbar' : ''}" style="width:${w}%${muted ? '' : `;background:${accent}`}"></div>`;
+      };
 
       // Nach Jahresverbrauch sortieren, groesster zuerst; Raeume ohne
       // Daten (null) stehen hinten.
@@ -2455,36 +2474,47 @@ class EnergyChartsByLutarym extends HTMLElement {
           if (Number.isFinite(w)) watt = (watt ?? 0) + w;
         }
         if (watt !== null) {
-          wattHtml = `<span class="rm-watt" style="color:${accent}">${fmt(watt, 0, 1)} W</span>`;
+          wattHtml = `<span class="rm-watt">${fmt(watt, 0, 1)} W</span>`;
         }
-        let kwhStr = '–', pctStr = '–', pct = 0;
+        let kwhStr = '–', kwhUnit = '', pctStr = '', pct = 0;
         if (room.kwh !== null) {
-          kwhStr = fmt(room.kwh, 0, 1) + ' kWh';
+          kwhStr = fmt(room.kwh, 0, 1);
+          kwhUnit = 'kWh';
           if (base && base > 0) { pct = (room.kwh / base) * 100; pctStr = fmt(pct, 1) + ' %'; }
         }
         return `<div class="rm-row">
-          <div class="rm-namecell"><span class="rm-name">${lutarymEsc(room.name)}</span>${wattHtml}</div>
-          ${bar(pct)}
-          <div class="rm-kwh">${kwhStr}</div>
-          <div class="rm-pct">${pctStr}</div>
+          <div class="rm-line">
+            <span class="rm-name">${lutarymEsc(room.name)}</span>${wattHtml}
+            <span class="rm-sp"></span>
+            <span class="rm-kwh">${kwhStr}</span><span class="rm-unit">${kwhUnit}</span>
+            <span class="rm-pct">${pctStr}</span>
+          </div>
+          ${bar(room.kwh)}
         </div>`;
       }).join('');
 
-      // "Other" is only meaningful with a real total meter: total − listed rooms.
-      const hasRooms = !!(data.rooms && data.rooms.length);
-      const other = (hasTotal && hasRooms) ? Math.max(0, data.total - roomSum) : null;
-      let oKwh = '–', oPct = '–', oPctV = 0;
+      let oKwh = '–', oUnit = '', oPct = '';
       if (other !== null && data.total > 0) {
-        oPctV = (other / data.total) * 100; oKwh = fmt(other, 0, 1) + ' kWh'; oPct = fmt(oPctV, 1) + ' %';
+        oKwh = fmt(other, 0, 1); oUnit = 'kWh'; oPct = fmt((other / data.total) * 100, 1) + ' %';
       }
       otherHtml = (hasTotal && hasRooms) ? `<div class="rm-row rm-other">
-        <div class="rm-namecell"><span class="rm-name">${t(hass, 'rmOtherLabel')}</span></div>
-        <div class="rm-barwrap"><div class="rm-bar rm-otherbar" style="width:${Math.min(100, oPctV)}%"></div></div>
-        <div class="rm-kwh">${oKwh}</div>
-        <div class="rm-pct">${oPct}</div>
+        <div class="rm-line">
+          <span class="rm-name">${t(hass, 'rmOtherLabel')}</span>
+          <span class="rm-sp"></span>
+          <span class="rm-kwh">${oKwh}</span><span class="rm-unit">${oUnit}</span>
+          <span class="rm-pct">${oPct}</span>
+        </div>
+        ${bar(other, true)}
       </div>` : '';
     } else {
-      rowsHtml = roomsCfg.map(r => `<div class="rm-row"><div class="rm-namecell"><span class="rm-name">${lutarymEsc(r.name)}</span></div><div class="rm-barwrap"><div class="rm-bar"></div></div><div class="rm-kwh">…</div><div class="rm-pct"></div></div>`).join('');
+      rowsHtml = roomsCfg.map(r => `<div class="rm-row">
+          <div class="rm-line">
+            <span class="rm-name">${lutarymEsc(r.name)}</span>
+            <span class="rm-sp"></span>
+            <span class="rm-kwh">…</span>
+          </div>
+          <div class="rm-bar"></div>
+        </div>`).join('');
     }
 
     this.shadowRoot.innerHTML = `
@@ -2506,30 +2536,24 @@ class EnergyChartsByLutarym extends HTMLElement {
         .rm-headval-main { font-size:1.7rem; }
         /* Ein Raster ueber die Raumzeilen. Bei einer Spalte verhaelt es
            sich wie die bisherige Liste. */
-        .rm-rows { display:grid; grid-template-columns:repeat(${cols}, minmax(0, 1fr)); column-gap:18px; }
-        .rm-row { display:grid; grid-template-columns:1fr 1fr auto auto; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--divider-color, rgba(128,128,128,.1)); }
-        .rm-row:last-child { border-bottom:none; }
-        ${cols > 1 ? `
-        /* Mehrspaltig ist je Zelle zu wenig Platz fuer vier Felder
-           nebeneinander. Name, kWh und Prozent bleiben in einer Zeile,
-           der Balken rutscht darunter und nutzt die volle Zellbreite. */
-        .rm-row { grid-template-columns:1fr auto auto; row-gap:3px; align-items:baseline; }
-        .rm-row > .rm-barwrap { grid-column:1 / -1; }
-        /* Die Trennlinie gehoert jetzt zur Zelle, nicht zur Liste. */
-        .rm-rows > .rm-row:last-child { border-bottom:1px solid var(--divider-color, rgba(128,128,128,.1)); }
-        .rm-kwh { min-width:0; }
-        .rm-pct { min-width:0; }
-        ` : ''}
-        .rm-namecell { display:flex; flex-direction:column; gap:1px; overflow:hidden; }
+        /* Eine Zeile je Raum: Name links, Zahlen rechts, der Balken als
+           duenne Linie darunter. Keine graue Balkenspur und keine
+           Zeilentrenner, das war der unruhige Teil. Getrennt werden nur
+           die Spalten. */
+        .rm-rows { display:grid; grid-template-columns:repeat(${cols}, minmax(0, 1fr)); column-gap:26px; }
+        .rm-row { display:flex; flex-direction:column; gap:5px; padding:7px 0; min-width:0; }
+        ${colSep}
+        .rm-line { display:flex; align-items:baseline; gap:6px; min-width:0; }
+        .rm-sp { flex:1 1 auto; }
         .rm-name { font-size:.9rem; color:var(--primary-text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .rm-watt { font-size:.75rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
-        .rm-barwrap { height:6px; background:var(--divider-color, rgba(128,128,128,.2)); border-radius:3px; overflow:hidden; }
-        .rm-bar { height:100%; border-radius:3px; background:${accent}; transition:width .4s ease; width:0%; }
-        .rm-otherbar { background:var(--secondary-text-color); opacity:.5; }
-        .rm-other { border-top:1px solid var(--divider-color, rgba(128,128,128,.2)); margin-top:4px; padding-top:8px; border-bottom:none; }
+        .rm-watt { font-size:.72rem; color:var(--secondary-text-color); font-variant-numeric:tabular-nums; white-space:nowrap; }
+        .rm-kwh { font-size:.9rem; font-weight:600; color:var(--primary-text-color); font-variant-numeric:tabular-nums; white-space:nowrap; }
+        .rm-unit { font-size:.7rem; color:var(--secondary-text-color); }
+        .rm-pct { font-size:.78rem; color:var(--secondary-text-color); font-variant-numeric:tabular-nums; white-space:nowrap; text-align:right; min-width:44px; }
+        .rm-bar { height:3px; border-radius:2px; background:${accent}; transition:width .4s ease; width:0%; }
+        .rm-otherbar { background:var(--secondary-text-color); opacity:.45; }
+        .rm-other { border-top:1px solid var(--divider-color, rgba(128,128,128,.2)); margin-top:6px; padding-top:9px; }
         .rm-other .rm-name { font-style:italic; color:var(--secondary-text-color); }
-        .rm-kwh { font-size:.88rem; font-variant-numeric:tabular-nums; color:var(--primary-text-color); white-space:nowrap; text-align:right; min-width:70px; }
-        .rm-pct { font-size:.8rem; color:var(--secondary-text-color); white-space:nowrap; text-align:right; min-width:40px; }
         .rm-empty { color:var(--secondary-text-color); font-size:.9rem; padding:8px 0; }
       </style>
       <ha-card>

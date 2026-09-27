@@ -2,7 +2,7 @@
 
 [English](README.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · **日本語**
 
-バージョン 2.0.0 · [変更履歴](CHANGELOG.md)
+バージョン 2.0.1 · [変更履歴](CHANGELOG.md)
 
 Home Assistant 用の Lovelace カスタムカードです。1枚のカードの動作を、視覚的な
 設定フォームの `card_type` で選びます。ほとんどの種類は月ごとの棒グラフを描き

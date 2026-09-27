@@ -2,7 +2,7 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Français** · [日本語](README.ja.md)
 
-Version 2.0.0 · [Changelog](CHANGELOG.md)
+Version 2.0.1 · [Changelog](CHANGELOG.md)
 
 Carte Lovelace personnalisée pour Home Assistant. Une seule carte dont le
 comportement se choisit avec `card_type` dans un formulaire de configuration
