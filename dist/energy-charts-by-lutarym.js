@@ -52,7 +52,7 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.1.0";
+const CARD_VERSION = "2.1.1";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -2266,7 +2266,8 @@ class EnergyChartsByLutarym extends HTMLElement {
   // breakpoint default is used instead.
   _effectiveChartHeight(defaultH, px) {
     if (!this._height) return defaultH;
-    const overhead = this._nonChartOverhead(px);
+    // Der gemessene Rest hat Vorrang, siehe _measureOverhead.
+    const overhead = this._measuredOverhead ?? this._nonChartOverhead(px);
     const available = this._height - overhead;
     const MIN_CHART_H = 100;
     return Math.max(MIN_CHART_H, Math.round(available));
@@ -3224,6 +3225,40 @@ class EnergyChartsByLutarym extends HTMLElement {
     });
 
     this._attachTooltipHandlers();
+    this._measureOverhead();
+  }
+
+  // Misst, wie viel Hoehe neben dem Diagramm tatsaechlich belegt ist:
+  // Kopfzeile, Summenzeile, die untere Polsterung der Diagrammflaeche und
+  // der Rahmen der Karte.
+  //
+  // Warum gemessen und nicht geschaetzt: _effectiveChartHeight rechnet
+  // "Diagrammhoehe = Kartenhoehe minus Rest". Liegt der geschaetzte Rest
+  // auch nur ein paar Pixel daneben, schaukelt sich das auf, sobald die
+  // Kartenhoehe vom Inhalt bestimmt wird - also ueberall dort, wo Home
+  // Assistant keine Hoehe vorgibt, etwa in der Vorschau des
+  // Kartenauswahl-Dialogs: jeder Durchlauf des ResizeObservers legt die
+  // Differenz drauf, die Karte wird bei jedem Frame groesser. Mit dem
+  // gemessenen Rest ist die Rechnung exakt, die Hoehe also ein Festwert.
+  _measureOverhead() {
+    const sr = this.shadowRoot;
+    const card = sr?.querySelector('ha-card');
+    const wrap = sr?.querySelector('.chart-wrap');
+    if (!card || !wrap) { this._measuredOverhead = null; return; }
+    if (typeof getComputedStyle !== 'function') { this._measuredOverhead = null; return; }
+    const head = sr.querySelector('.card-header');
+    const tots = sr.querySelector('.totals');
+    const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+    const padY = (el) => { const s = getComputedStyle(el); return num(s.paddingTop) + num(s.paddingBottom); };
+    // Nur die feststehenden Teile zaehlen. .chart-wrap selbst waechst mit
+    // (flex:1 1 auto) und taugt deshalb nicht als Mass, seine Polsterung
+    // dagegen schon.
+    const h = (head?.offsetHeight || 0)
+            + (tots?.offsetHeight || 0)
+            + padY(wrap)
+            + padY(card)
+            + Math.max(0, (card.offsetHeight || 0) - (card.clientHeight || 0));
+    this._measuredOverhead = (Number.isFinite(h) && h > 0) ? h : null;
   }
 
   // Hover tooltips for bars/markers — attached fresh after every render
