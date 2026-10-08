@@ -52,7 +52,7 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.1.1";
+const CARD_VERSION = "2.1.2";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -2268,6 +2268,11 @@ class EnergyChartsByLutarym extends HTMLElement {
     if (!this._height) return defaultH;
     // Der gemessene Rest hat Vorrang, siehe _measureOverhead.
     const overhead = this._measuredOverhead ?? this._nonChartOverhead(px);
+    // Entspricht die gemessene Hoehe genau der, die die Karte selbst
+    // erzeugt, gibt ihr niemand eine Hoehe vor: der Rahmen richtet sich
+    // nach dem Inhalt. Dann waere jedes Nachfuehren ein Zug am eigenen
+    // Schopf, also bleibt es bei der Hoehe aus der Breite.
+    if (Math.abs(this._height - (overhead + defaultH)) <= 8) return defaultH;
     const available = this._height - overhead;
     const MIN_CHART_H = 100;
     return Math.max(MIN_CHART_H, Math.round(available));
@@ -2381,7 +2386,11 @@ class EnergyChartsByLutarym extends HTMLElement {
            wenn doch eine feste Zeilenzahl vorgegeben ist, statt den Inhalt
            abzuschneiden. */
         :host { display:block; width:100%; box-sizing:border-box; ${this._appearanceCSSVars()} }
-        ha-card { width:100%; min-height:100%; box-sizing:border-box; padding:16px 18px; }
+        ha-card { width:100%; box-sizing:border-box; padding:16px 18px; }
+        /* Kein min-height:100%. Diese beiden Presets melden rows:auto,
+           bestimmen ihre Hoehe also aus dem Inhalt. Haengt die Hoehe des
+           Rahmens umgekehrt am Inhalt - etwa in einer Vorschau -, dann
+           treibt sich die Karte mit min-height:100% selbst in die Hoehe. */
         .ov-title { font-size:${cfg.titleFontSize}px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--secondary-text-color); margin-bottom:14px; }
         .ov-hero { font-size:2.4rem; font-weight:600; line-height:1.05; color:var(--primary-text-color); font-variant-numeric:tabular-nums; }
         .ov-sub { font-size:.8rem; color:var(--secondary-text-color); margin-top:3px; }
@@ -2566,7 +2575,11 @@ class EnergyChartsByLutarym extends HTMLElement {
            wenn doch eine feste Zeilenzahl vorgegeben ist, statt den Inhalt
            abzuschneiden. */
         :host { display:block; width:100%; box-sizing:border-box; ${this._appearanceCSSVars()} }
-        ha-card { width:100%; min-height:100%; box-sizing:border-box; padding:16px 18px; }
+        ha-card { width:100%; box-sizing:border-box; padding:16px 18px; }
+        /* Kein min-height:100%. Diese beiden Presets melden rows:auto,
+           bestimmen ihre Hoehe also aus dem Inhalt. Haengt die Hoehe des
+           Rahmens umgekehrt am Inhalt - etwa in einer Vorschau -, dann
+           treibt sich die Karte mit min-height:100% selbst in die Hoehe. */
         .rm-title { font-size:${cfg.titleFontSize}px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--secondary-text-color); margin-bottom:14px; }
         .rm-totlabel { font-size:.78rem; color:var(--secondary-text-color); margin-bottom:2px; }
         .rm-totval { font-size:1.7rem; font-weight:600; line-height:1.05; color:var(--primary-text-color); font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -3245,19 +3258,26 @@ class EnergyChartsByLutarym extends HTMLElement {
     const card = sr?.querySelector('ha-card');
     const wrap = sr?.querySelector('.chart-wrap');
     if (!card || !wrap) { this._measuredOverhead = null; return; }
-    if (typeof getComputedStyle !== 'function') { this._measuredOverhead = null; return; }
-    const head = sr.querySelector('.card-header');
-    const tots = sr.querySelector('.totals');
+    if (typeof getComputedStyle !== 'function'
+        || typeof this.getBoundingClientRect !== 'function') { this._measuredOverhead = null; return; }
+    const svg = wrap.querySelector ? wrap.querySelector('svg') : null;
+    if (!svg) { this._measuredOverhead = null; return; }
+    const host = this.getBoundingClientRect();
+    const sv   = svg.getBoundingClientRect();
+    const wr   = wrap.getBoundingClientRect();
     const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
-    const padY = (el) => { const s = getComputedStyle(el); return num(s.paddingTop) + num(s.paddingBottom); };
-    // Nur die feststehenden Teile zaehlen. .chart-wrap selbst waechst mit
-    // (flex:1 1 auto) und taugt deshalb nicht als Mass, seine Polsterung
-    // dagegen schon.
-    const h = (head?.offsetHeight || 0)
-            + (tots?.offsetHeight || 0)
-            + padY(wrap)
-            + padY(card)
-            + Math.max(0, (card.offsetHeight || 0) - (card.clientHeight || 0));
+    // Alles oberhalb des Diagramms auf einmal: Rahmen, Polsterung,
+    // Kopfzeile, Summenzeile, samt aller Abstaende dazwischen. Darunter nur
+    // die Polsterung der Diagrammflaeche und der Rest der Karte.
+    //
+    // Der leere Platz, der im Sections-Dashboard unter dem Diagramm bleibt,
+    // sitzt innerhalb von .chart-wrap (flex:1 1 auto) und faellt deshalb
+    // aus dieser Rechnung heraus. Genau darauf kommt es an: so stimmt der
+    // Rest in beiden Faellen, ob die Hoehe nun vorgegeben ist oder sich
+    // nach dem Inhalt richtet.
+    const h = (sv.top - host.top)
+            + num(getComputedStyle(wrap).paddingBottom)
+            + (host.bottom - wr.bottom);
     this._measuredOverhead = (Number.isFinite(h) && h > 0) ? h : null;
   }
 
