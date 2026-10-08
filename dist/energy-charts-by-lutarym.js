@@ -52,7 +52,7 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.1.2";
+const CARD_VERSION = "2.2.0";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -775,6 +775,15 @@ const LUT_PERIOD_WORDS = ['heute','today','gestern','yesterday','taeglich','dail
 // Schneidet die bekannten Endungen ab, damit
 // sensor.wallbox_strom_energie und sensor.wallbox_strom_leistung
 // beide auf den Stamm "wallbox_strom" fallen.
+// Zeilenzahl aus der Kartenkonfiguration. grid_options ist die aktuelle
+// Form, layout_options die aeltere; 'auto' und alles Unbrauchbare ergibt
+// null, dann gilt die Hoehe aus der Kartenbreite.
+function lutarymGridRows(config) {
+  const raw = config?.grid_options?.rows ?? config?.layout_options?.grid_rows;
+  const n = Number(raw);
+  return (Number.isFinite(n) && n > 0) ? Math.min(100, Math.round(n)) : null;
+}
+
 function lutarymStem(entityId, tail) {
   const parts = entityId.slice(entityId.indexOf('.') + 1).split('_');
   while (parts.length > 1 && tail.includes(parts[parts.length - 1])) parts.pop();
@@ -1090,18 +1099,26 @@ class EnergyChartsByLutarym extends HTMLElement {
       let changed = false;
       for (const entry of entries) {
         const w = entry.contentRect.width;
-        const h = entry.contentRect.height;
-        if (Math.abs(w - this._width) > 4 || Math.abs(h - this._height) > 4) {
-          this._width  = w;
-          this._height = h;
+        // NUR die Breite. Die Hoehe wird bewusst nicht beobachtet.
+        //
+        // Frueher bestimmte die gemessene Hoehe die Diagrammhoehe. Das ist
+        // eine Rueckkopplung: die Karte baut sich neu auf, wird dabei
+        // hoeher, der Beobachter meldet die neue Hoehe, die Karte wird
+        // wieder hoeher. Solange ein Rahmen seine Hoehe selbst vom Inhalt
+        // nimmt - so in jeder Vorschau - endet das nie, die Karte waechst
+        // bei jedem Bild. Jetzt kommt die Hoehe aus der Konfiguration
+        // (grid_options.rows) und sonst aus der Breite, siehe
+        // _effectiveChartHeight. Zieht jemand die Karte im Dashboard
+        // groesser, schreibt Home Assistant das in die Konfiguration und
+        // setConfig baut neu auf - dafuer braucht es den Beobachter nicht.
+        if (Math.abs(w - this._width) > 4) {
+          this._width = w;
           changed = true;
         }
       }
       if (!changed || this._roFrame) return;
-      // Ein Rebuild pro Frame. _render() ersetzt das komplette Shadow-DOM
-      // und veraendert dabei die Hoehe, was den Observer erneut ausloesen
-      // kann; beim Ziehen am Kartenrand waeren das sonst dutzende
-      // Neuaufbauten je Sekunde (mit temp_mode 'daily' je ueber hundert
+      // Ein Rebuild pro Frame, sonst waeren es beim Ziehen am Kartenrand
+      // dutzende je Sekunde (mit temp_mode 'daily' je ueber hundert
       // SVG-Knoten samt Listenern).
       this._roFrame = requestAnimationFrame(() => {
         this._roFrame = 0;
@@ -1247,6 +1264,11 @@ class EnergyChartsByLutarym extends HTMLElement {
     this._config = {
       card_type:  cardType,
       entity:     newEntity,
+      // Vom Sections-Dashboard vorgegebene Zeilenzahl. Daraus, und nur
+      // daraus, ergibt sich eine von der Breitenvorgabe abweichende
+      // Diagrammhoehe. Home Assistant schreibt den Wert in die
+      // Konfiguration, sobald jemand die Karte groesser zieht.
+      gridRows:   lutarymGridRows(config),
       powerEntity: newPowerEntity, // optional second entity (instantaneous power) for the peak-power markers
       temperatureEntity: newTemperatureEntity, // optional second entity (outdoor temp) for the temperature line
       tempMode:   newTempMode, // 'daily' | 'minmax' | 'mean' — how the temperature line is aggregated
@@ -2259,21 +2281,23 @@ class EnergyChartsByLutarym extends HTMLElement {
     return headerH + totalsH + chartPaddingBottom;
   }
 
-  // Effective chart height: follows the card height measured by the
-  // ResizeObserver (this._height) once known — e.g. when the card is
-  // resized taller/shorter in a Sections/grid dashboard. Without a
-  // known/external height (classic Masonry dashboard) the responsive
-  // breakpoint default is used instead.
+  // Hoehe der Diagrammflaeche.
+  //
+  // Zwei Quellen, beide fest: die Zeilenzahl aus der Konfiguration, wenn
+  // im Sections-Dashboard eine vorgegeben ist, sonst die Vorgabe aus der
+  // Kartenbreite. Die tatsaechlich gemessene Hoehe der Karte geht hier
+  // NICHT ein - daraus zu rechnen hiesse, die eigene Ausgabe wieder als
+  // Eingabe zu nehmen, und genau daran wuchs die Karte in Vorschauen
+  // endlos. Zieht jemand die Karte groesser, aendert Home Assistant
+  // grid_options.rows, und das kommt hier unten an.
   _effectiveChartHeight(defaultH, px) {
-    if (!this._height) return defaultH;
-    // Der gemessene Rest hat Vorrang, siehe _measureOverhead.
-    const overhead = this._measuredOverhead ?? this._nonChartOverhead(px);
-    // Entspricht die gemessene Hoehe genau der, die die Karte selbst
-    // erzeugt, gibt ihr niemand eine Hoehe vor: der Rahmen richtet sich
-    // nach dem Inhalt. Dann waere jedes Nachfuehren ein Zug am eigenen
-    // Schopf, also bleibt es bei der Hoehe aus der Breite.
-    if (Math.abs(this._height - (overhead + defaultH)) <= 8) return defaultH;
-    const available = this._height - overhead;
+    const rows = this._config?.gridRows;
+    if (!rows) return defaultH;
+    // So rechnet das Sections-Raster selbst:
+    // rows * (Zeilenhoehe + Zeilenabstand) - Zeilenabstand,
+    // mit 56px und 8px als Vorgabe von Home Assistant.
+    const slot = rows * (56 + 8) - 8;
+    const available = slot - this._nonChartOverhead(px);
     const MIN_CHART_H = 100;
     return Math.max(MIN_CHART_H, Math.round(available));
   }
@@ -3238,47 +3262,6 @@ class EnergyChartsByLutarym extends HTMLElement {
     });
 
     this._attachTooltipHandlers();
-    this._measureOverhead();
-  }
-
-  // Misst, wie viel Hoehe neben dem Diagramm tatsaechlich belegt ist:
-  // Kopfzeile, Summenzeile, die untere Polsterung der Diagrammflaeche und
-  // der Rahmen der Karte.
-  //
-  // Warum gemessen und nicht geschaetzt: _effectiveChartHeight rechnet
-  // "Diagrammhoehe = Kartenhoehe minus Rest". Liegt der geschaetzte Rest
-  // auch nur ein paar Pixel daneben, schaukelt sich das auf, sobald die
-  // Kartenhoehe vom Inhalt bestimmt wird - also ueberall dort, wo Home
-  // Assistant keine Hoehe vorgibt, etwa in der Vorschau des
-  // Kartenauswahl-Dialogs: jeder Durchlauf des ResizeObservers legt die
-  // Differenz drauf, die Karte wird bei jedem Frame groesser. Mit dem
-  // gemessenen Rest ist die Rechnung exakt, die Hoehe also ein Festwert.
-  _measureOverhead() {
-    const sr = this.shadowRoot;
-    const card = sr?.querySelector('ha-card');
-    const wrap = sr?.querySelector('.chart-wrap');
-    if (!card || !wrap) { this._measuredOverhead = null; return; }
-    if (typeof getComputedStyle !== 'function'
-        || typeof this.getBoundingClientRect !== 'function') { this._measuredOverhead = null; return; }
-    const svg = wrap.querySelector ? wrap.querySelector('svg') : null;
-    if (!svg) { this._measuredOverhead = null; return; }
-    const host = this.getBoundingClientRect();
-    const sv   = svg.getBoundingClientRect();
-    const wr   = wrap.getBoundingClientRect();
-    const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
-    // Alles oberhalb des Diagramms auf einmal: Rahmen, Polsterung,
-    // Kopfzeile, Summenzeile, samt aller Abstaende dazwischen. Darunter nur
-    // die Polsterung der Diagrammflaeche und der Rest der Karte.
-    //
-    // Der leere Platz, der im Sections-Dashboard unter dem Diagramm bleibt,
-    // sitzt innerhalb von .chart-wrap (flex:1 1 auto) und faellt deshalb
-    // aus dieser Rechnung heraus. Genau darauf kommt es an: so stimmt der
-    // Rest in beiden Faellen, ob die Hoehe nun vorgegeben ist oder sich
-    // nach dem Inhalt richtet.
-    const h = (sv.top - host.top)
-            + num(getComputedStyle(wrap).paddingBottom)
-            + (host.bottom - wr.bottom);
-    this._measuredOverhead = (Number.isFinite(h) && h > 0) ? h : null;
   }
 
   // Hover tooltips for bars/markers — attached fresh after every render
