@@ -2,7 +2,7 @@
 
 **English** · [Deutsch](README.de.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.2.0 · [Changelog](CHANGELOG.md)
+Version 2.3.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card for Home Assistant. A single card whose behaviour is
 chosen via `card_type` in a visual configuration form. Most types draw
@@ -24,7 +24,9 @@ in the editor.
 ![Self-Sufficiency](Image/Autarkie.png)
 
 Monthly average of a self-sufficiency percentage sensor. Y-axis fixed
-0–100 %. Summary value is the yearly average (not a sum).
+0–100 %. Summary value is the yearly average (not a sum), weighted by time:
+each month counts with the time its average covers, so a month that has
+only just begun does not weigh as much as a full one.
 Default entity: `sensor.autarkie`.
 
 ### energy — Power Consumption
@@ -71,12 +73,15 @@ Share of wallbox charging that happened while no grid power was drawn.
 Fixed 0–100 % bar chart per month. Requires two entities:
 
 - `entity`: total wallbox charging energy (kWh).
-- `grid_entity`: grid draw, given as **power** (W/kW) or **energy** (kWh).
-  Power is integrated from recorded hourly means into monthly import kWh
-  (import only).
+- `grid_entity`: grid draw, given as **power** (W, kW or any other power
+  unit Home Assistant knows) or **energy** (kWh). Power is integrated from
+  the recorded hourly means into import kWh (import only).
 
-Monthly value = (1 − grid_import_kWh ÷ total_kWh) × 100, clamped 0–100.
-No grid draw in a month means 100 %.
+Calculated hour by hour: the grid import of an hour covers the charging
+first, so the grid-free part of that hour is max(0, charged − grid import).
+Monthly value = Σ grid-free kWh ÷ Σ charged kWh × 100. No grid draw while
+charging means 100 %. Hours without a grid value are left out instead of
+counting as grid-free.
 
 ### eigenverbrauch — Self-Consumption
 
@@ -172,10 +177,14 @@ Configuration:
   Dec 31); setting it disables the same-period comparison below.
 
 The percentage comparison is against the **same period** of the previous
-year (Jan 1 to today's date a year ago), not against the full previous
-year. A full-year comparison would be dominated by the calendar: in
-September it would always read as a large decrease, whatever the actual
-consumption did.
+year, not against the full previous year, and over complete days: Jan 1 to
+yesterday against Jan 1 to the same date a year ago. Today has only just
+begun and would otherwise stand against a full day. If the meter only
+started during the previous year, both periods start on that calendar day,
+so a fresh meter does not show an increase that never happened. A
+full-year comparison would be dominated by the calendar: in September it
+would always read as a large decrease, whatever the actual consumption
+did.
 
 ### rooms — Room Energy Consumption
 
@@ -236,6 +245,11 @@ Always excluded, without configuration:
   `today`, `heute`, `daily`, `month`, `monat`, `year` or `jahr` in the
   entity ID. Utility meter helpers carry the same device class and would
   otherwise list the same consumption twice
+- meters for feed-in, generation or a single phase, recognised by a word
+  such as `returned`, `export`, `einspeisung`, `production`, `erzeugung`,
+  `ertrag`, `pv`, `solar`, `phase`, `l1`, `l2` or `l3` in the entity ID or name.
+  Next to the actual meter in the same area they would count its
+  consumption twice or book generation as consumption
 - anything that is not a counter, e.g. a plain measurement sensor
 
 Two optional filters:
@@ -280,7 +294,12 @@ resources:
 
 Add via **Edit Dashboard → Add Card → "Energy-Charts-by-Lutarym"**. This
 opens the visual configuration form directly, which is the recommended way
-to configure every option below.
+to configure every option below. The installed version is shown at the
+bottom of the form.
+
+Months, days and years follow the time zone set in Home Assistant, the
+same way Home Assistant groups its statistics, not the time zone of the
+browser. Numbers follow the number format in your Home Assistant profile.
 
 ```yaml
 type: custom:energy-charts-by-lutarym

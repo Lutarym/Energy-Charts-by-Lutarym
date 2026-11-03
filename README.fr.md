@@ -2,7 +2,7 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Français** · [日本語](README.ja.md)
 
-Version 2.2.0 · [Changelog](CHANGELOG.md)
+Version 2.3.0 · [Changelog](CHANGELOG.md)
 
 Carte Lovelace personnalisée pour Home Assistant. Une seule carte dont le
 comportement se choisit avec `card_type` dans un formulaire de configuration
@@ -25,7 +25,9 @@ redéfinissent dans l'éditeur.
 ![Autonomie](Image/Autarkie.png)
 
 Moyenne mensuelle d'un capteur de taux d'autonomie en pourcentage. Axe Y fixe
-0–100 %. La valeur annuelle est la moyenne, pas la somme.
+0–100 %. La valeur annuelle est la moyenne, pas la somme, pondérée par le
+temps : chaque mois compte selon la durée que couvre sa moyenne, un mois à
+peine commencé ne pèse donc pas autant qu'un mois complet.
 Entité par défaut : `sensor.autarkie`.
 
 ### energy — Consommation électrique
@@ -77,12 +79,16 @@ Part de la charge de la borne effectuée sans soutirage sur le réseau.
 Graphique en barres fixe 0–100 % par mois. Nécessite deux entités :
 
 - `entity` : énergie de charge totale de la borne (kWh).
-- `grid_entity` : soutirage réseau, donné en **puissance** (W/kW) ou en
-  **énergie** (kWh). La puissance est intégrée à partir des moyennes horaires
-  enregistrées en kWh soutirés par mois (soutirage uniquement).
+- `grid_entity` : soutirage réseau, donné en **puissance** (W, kW ou toute
+  autre unité de puissance connue de Home Assistant) ou en **énergie** (kWh).
+  La puissance est intégrée à partir des moyennes horaires enregistrées en
+  kWh soutirés (soutirage uniquement).
 
-Valeur mensuelle = (1 − soutirage_kWh ÷ charge_kWh) × 100, bornée à 0–100.
-Aucun soutirage dans le mois signifie 100 %.
+Le calcul se fait heure par heure : le soutirage d'une heure couvre d'abord
+la charge, la part sans réseau de cette heure vaut donc
+max(0, chargé − soutirage). Valeur mensuelle = Σ kWh sans réseau ÷ Σ kWh
+chargés × 100. Aucun soutirage pendant la charge signifie 100 %. Les heures
+sans valeur réseau sont écartées au lieu de compter comme sans réseau.
 
 La valeur annuelle de la ligne de synthèse est pondérée par l'énergie, soit
 Σ kWh sans réseau ÷ Σ kWh chargés, et non la moyenne des taux mensuels.
@@ -190,10 +196,15 @@ précédente. Configuration :
   même période décrite ci-dessous.
 
 La comparaison en pourcentage porte sur la **même période** de l'année
-précédente (du 1er janvier à la date d'aujourd'hui il y a un an), et non sur
-l'année précédente complète. Une comparaison à l'année complète serait dictée
-par le calendrier : en septembre elle afficherait toujours une forte baisse,
-quelle que soit l'évolution réelle de la consommation.
+précédente, et non sur l'année précédente complète, et sur des jours
+complets : du 1er janvier à hier contre du 1er janvier à la même date il y
+a un an. La journée en cours vient à peine de commencer et serait sinon
+comparée à une journée entière. Si le compteur n'a démarré qu'en cours
+d'année précédente, les deux périodes commencent à ce jour du calendrier,
+pour qu'un compteur neuf n'affiche pas une hausse qui n'a pas eu lieu. Une
+comparaison à l'année complète serait dictée par le calendrier : en
+septembre elle afficherait toujours une forte baisse, quelle que soit
+l'évolution réelle de la consommation.
 
 ### rooms — Consommation par pièce
 
@@ -258,6 +269,12 @@ Toujours exclus, sans configuration :
   `today`, `heute`, `daily`, `month`, `monat`, `year` ou `jahr` dans
   l'identifiant. Les compteurs utilitaires portent la même classe d'appareil
   et listeraient deux fois la même consommation
+- les compteurs d'injection, de production ou d'une seule phase, reconnus à
+  un mot comme `returned`, `export`, `einspeisung`, `production`,
+  `erzeugung`, `ertrag`, `pv`, `solar`, `phase`, `l1`, `l2` ou `l3` dans
+  l'identifiant ou le nom. À côté du vrai compteur de la même zone, ils
+  compteraient sa consommation deux fois ou feraient passer la production
+  pour de la consommation
 - tout ce qui n'est pas un compteur, par exemple un simple capteur de mesure
 
 Deux filtres facultatifs :
@@ -304,7 +321,12 @@ resources:
 Ajouter via **Modifier le tableau de bord → Ajouter une carte →
 « Energy-Charts-by-Lutarym »**. Cela ouvre directement le formulaire de
 configuration graphique, la voie recommandée pour toutes les options
-ci-dessous.
+ci-dessous. La version installée figure en bas du formulaire.
+
+Les mois, les jours et les années suivent le fuseau horaire réglé dans
+Home Assistant, comme Home Assistant regroupe lui-même ses statistiques, et
+non le fuseau du navigateur. Les nombres suivent le format numérique de
+votre profil Home Assistant.
 
 ```yaml
 type: custom:energy-charts-by-lutarym

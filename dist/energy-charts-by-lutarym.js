@@ -1,12 +1,14 @@
 /**
  * energy-charts-by-lutarym.js
  * Lovelace Custom Card — combined monthly bar charts
- * Covers: self-sufficiency, power consumption, PV yield, wallbox, heat pump, air conditioning
+ * Covers: self-sufficiency, power consumption, PV yield, wallbox, heat pump, air conditioning,
+ * battery, feed-in, self-consumption, charging efficiency, COP, electricity overview, rooms
  * Current year + previous year(s) as comparison bars
  *
  * YAML:
  *   type: custom:energy-charts-by-lutarym
- *   card_type: energy      # autarkie | energy | pv | wallbox | wallbox_eff | wp | klima | akku | einspeisung
+ *   card_type: energy      # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop |
+ *                          # wp | klima | akku | einspeisung | overview | rooms
  *   entity: sensor.xyz     # optional, overrides the preset default
  *   grid_entity: sensor.xyz # required for "wallbox_eff": the grid draw. May be a POWER sensor (W/kW) or an
  *                          # ENERGY sensor (kWh). Power is integrated from its recorded hourly means into
@@ -52,13 +54,14 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.2.0";
+const CARD_VERSION = "2.3.0";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
 const I18N = {
   en: {
     editorCardType: 'Card type',
+    editorVersion: 'Version {version}',
     rmDefaultTitle: 'Room Energy Consumption',
     rmTotalLabel: 'Total consumption {year}',
     rmRoomsSumLabel: 'Rooms total {year}',
@@ -85,7 +88,7 @@ const I18N = {
     rmAutoIncludeLabel: 'Only entities containing',
     rmAutoIncludeHint: 'Optional filter on entity ID or name. Leave empty for all.',
     rmAutoExcludeLabel: 'Exclude',
-    rmAutoExcludeHint: 'Comma-separated entity IDs or text fragments. The total, PV and feed-in entities above are always excluded, as are daily/monthly/yearly variants of the same meter.',
+    rmAutoExcludeHint: 'Comma-separated entity IDs or text fragments. The total, PV and feed-in entities above are always excluded, as are daily/monthly/yearly variants of the same meter and meters for feed-in, generation or a single phase, so nothing is counted twice.',
     rmAutoFound: '{count} entities found',
     rmAutoNone: 'No matching entities found.',
     rmAutoListHidden: 'The manual list is inactive while automatic detection is on.',
@@ -196,6 +199,7 @@ const I18N = {
   },
   de: {
     editorCardType: 'Kartentyp',
+    editorVersion: 'Version {version}',
     rmDefaultTitle: 'Stromverbrauch Räume',
     rmTotalLabel: 'Gesamtverbrauch {year}',
     rmRoomsSumLabel: 'Summe Räume {year}',
@@ -222,7 +226,7 @@ const I18N = {
     rmAutoIncludeLabel: 'Nur Entities, die enthalten',
     rmAutoIncludeHint: 'Optionaler Filter auf Entity-ID oder Name. Leer lassen für alle.',
     rmAutoExcludeLabel: 'Ausschließen',
-    rmAutoExcludeHint: 'Kommagetrennte Entity-IDs oder Textteile. Die Gesamt-, PV- und Einspeise-Entity oben sind immer ausgeschlossen, ebenso Tages-, Monats- und Jahresvarianten desselben Zählers.',
+    rmAutoExcludeHint: 'Kommagetrennte Entity-IDs oder Textteile. Die Gesamt-, PV- und Einspeise-Entity oben sind immer ausgeschlossen, ebenso Tages-, Monats- und Jahresvarianten desselben Zählers sowie Zähler für Einspeisung, Erzeugung oder eine einzelne Phase, damit nichts doppelt zählt.',
     rmAutoFound: '{count} Entities gefunden',
     rmAutoNone: 'Keine passenden Entities gefunden.',
     rmAutoListHidden: 'Die manuelle Liste ist inaktiv, solange die automatische Erkennung an ist.',
@@ -333,6 +337,7 @@ const I18N = {
   },
   fr: {
     editorCardType: 'Type de carte',
+    editorVersion: 'Version {version}',
     rmDefaultTitle: 'Consommation par pièce',
     rmTotalLabel: 'Consommation totale {year}',
     rmRoomsSumLabel: 'Total des pièces {year}',
@@ -359,7 +364,7 @@ const I18N = {
     rmAutoIncludeLabel: 'Seulement les entités contenant',
     rmAutoIncludeHint: 'Filtre facultatif sur l\'identifiant ou le nom de l\'entité. Laisser vide pour toutes.',
     rmAutoExcludeLabel: 'Exclure',
-    rmAutoExcludeHint: 'Identifiants d\'entité ou fragments de texte séparés par des virgules. Les entités total, PV et injection ci-dessus sont toujours exclues, ainsi que les variantes journalières, mensuelles et annuelles du même compteur.',
+    rmAutoExcludeHint: 'Identifiants d\'entité ou fragments de texte séparés par des virgules. Les entités total, PV et injection ci-dessus sont toujours exclues, ainsi que les variantes journalières, mensuelles et annuelles du même compteur et les compteurs d\'injection, de production ou d\'une seule phase, pour que rien ne soit compté deux fois.',
     rmAutoFound: '{count} entités trouvées',
     rmAutoNone: 'Aucune entité correspondante trouvée.',
     rmAutoListHidden: 'La liste manuelle est inactive tant que la détection automatique est active.',
@@ -470,6 +475,7 @@ const I18N = {
   },
   ja: {
     editorCardType: 'カードの種類',
+    editorVersion: 'バージョン {version}',
     rmDefaultTitle: '部屋別の電力使用量',
     rmTotalLabel: '{year}年の総使用量',
     rmRoomsSumLabel: '{year}年の部屋合計',
@@ -496,7 +502,7 @@ const I18N = {
     rmAutoIncludeLabel: '次を含むエンティティのみ',
     rmAutoIncludeHint: 'エンティティIDまたは名前に対する任意のフィルターです。空欄ですべてが対象になります。',
     rmAutoExcludeLabel: '除外',
-    rmAutoExcludeHint: 'エンティティIDまたは文字列をカンマ区切りで指定します。上の全体・太陽光・売電のエンティティ、および同じ計器の日次・月次・年次の派生は常に除外されます。',
+    rmAutoExcludeHint: 'エンティティIDまたは文字列をカンマ区切りで指定します。上の全体・太陽光・売電のエンティティ、同じ計器の日次・月次・年次の派生、および売電・発電・単相の計器は、二重に数えないよう常に除外されます。',
     rmAutoFound: '{count} 件のエンティティが見つかりました',
     rmAutoNone: '該当するエンティティが見つかりません。',
     rmAutoListHidden: '自動検出が有効な間、手動のリストは使われません。',
@@ -752,13 +758,169 @@ function lutarymEsc(v) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// Zahl aus der Konfiguration. Nimmt auch "0,32" an: wer YAML von Hand
+// schreibt, tippt in Deutschland gern das Komma, und Number("0,32") waere
+// NaN - beim Strompreis hiesse das stillschweigend 0 EUR.
+function lutarymNum(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const n = Number(String(v).trim().replace(/\s+/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+// ── Zahlenformat ──────────────────────────────────────────────────────
+// Wie Home Assistant selbst: hass.locale.number_format bestimmt Tausender-
+// und Dezimaltrennzeichen. Die Zuordnung entspricht numberFormatToLocale im
+// HA-Frontend (src/common/number/format_number.ts).
+const lutarymNfCache = new Map();
+function lutarymNumLocale(hass) {
+  const loc = hass && hass.locale;
+  switch (loc && loc.number_format) {
+    case 'comma_decimal': return ['en-US', 'en'];
+    case 'decimal_comma': return ['de', 'es', 'it'];
+    case 'space_comma':   return ['fr', 'sv', 'cs'];
+    case 'quote_decimal': return ['de-CH'];
+    case 'system':        return undefined;
+    case 'none':          return null;
+    default:              return (loc && loc.language) || (hass && hass.language) || undefined;
+  }
+}
+function lutarymFmt(hass, v, minD = 0, maxD = minD) {
+  const n = Number(v);
+  if (v == null || !Number.isFinite(n)) return '–';
+  const locale = lutarymNumLocale(hass);
+  if (locale === null) {
+    // number_format "none": ohne Gruppierung, Punkt als Dezimalzeichen
+    let s = n.toFixed(maxD);
+    if (maxD > minD && s.includes('.')) {
+      s = s.replace(/0+$/, '');
+      const dec = s.split('.')[1] || '';
+      if (dec.length < minD) s += '0'.repeat(minD - dec.length);
+      if (s.endsWith('.')) s = s.slice(0, -1);
+    }
+    return s;
+  }
+  const key = JSON.stringify([locale, minD, maxD]);
+  let f = lutarymNfCache.get(key);
+  if (!f) {
+    try {
+      f = new Intl.NumberFormat(locale, { minimumFractionDigits: minD, maximumFractionDigits: maxD });
+    } catch (e) {
+      f = new Intl.NumberFormat(undefined, { minimumFractionDigits: minD, maximumFractionDigits: maxD });
+    }
+    lutarymNfCache.set(key, f);
+  }
+  return f.format(n);
+}
+
+// ── Zeitzone ──────────────────────────────────────────────────────────
+// Home Assistant fasst Tage und Monate in SEINER Zeitzone zusammen
+// (hass.config.time_zone), nicht in der des Browsers: ein Monatseintrag
+// beginnt um Mitternacht Serverzeit am Ersten (recorder/statistics.py,
+// reduce_month_ts_factory). Wertet die Karte das in Browserzeit aus und
+// liegt der Browser westlich des Servers, faellt der 1. Februar 00:00
+// Serverzeit noch auf den 31. Januar - jeder Monat rutscht um einen nach
+// vorn, der Januar faellt aus dem Jahr. Deshalb rechnet die Karte alle
+// Grenzen in der Serverzeitzone.
+function lutarymServerTz(hass) {
+  const tz = hass && hass.config && hass.config.time_zone;
+  return (typeof tz === 'string' && tz) ? tz : null;
+}
+
+// Wanduhrzeit eines Zeitpunkts in tz. Ohne (gueltige) Zeitzone gilt die
+// des Browsers, wie bisher.
+const lutarymDtfCache = new Map();
+function lutarymWall(ms, tz) {
+  let f = null;
+  if (tz) {
+    f = lutarymDtfCache.get(tz);
+    if (f === undefined) {
+      try {
+        f = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric',
+          day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+        });
+      } catch (e) {
+        f = null;
+      }
+      lutarymDtfCache.set(tz, f);
+    }
+  }
+  if (!f) {
+    const d = new Date(ms);
+    return { y: d.getFullYear(), mo: d.getMonth(), d: d.getDate(),
+             h: d.getHours(), mi: d.getMinutes(), s: d.getSeconds() };
+  }
+  const p = {};
+  for (const part of f.formatToParts(new Date(ms))) p[part.type] = part.value;
+  // % 24: manche Engines liefern Mitternacht als "24"
+  return { y: +p.year, mo: +p.month - 1, d: +p.day, h: (+p.hour) % 24, mi: +p.minute, s: +p.second };
+}
+
+// Zeitpunkt (ms) einer Wanduhrzeit in tz, etwa 1. Januar 00:00 in
+// Europe/Berlin. Ueberlaeufe sind erlaubt (Monat 12 = Januar des
+// Folgejahres). Mehrfach nachgefuehrt, damit Tage mit Zeitumstellung
+// stimmen.
+function lutarymTzOk(tz) {
+  if (!tz) return false;
+  if (!lutarymDtfCache.has(tz)) lutarymWall(0, tz);   // legt den Formatierer an
+  return !!lutarymDtfCache.get(tz);
+}
+function lutarymAt(tz, y, mo, d = 1, h = 0) {
+  if (!lutarymTzOk(tz)) return new Date(y, mo, d, h).getTime();
+  const want = Date.UTC(y, mo, d, h);
+  let t = want;
+  for (let i = 0; i < 4; i++) {
+    const w = lutarymWall(t, tz);
+    const diff = Date.UTC(w.y, w.mo, w.d, w.h, w.mi, w.s) - want;
+    if (!diff) break;
+    t -= diff;
+  }
+  return t;
+}
+
+// Die dreizehn Monatsgrenzen eines Jahres in Serverzeit:
+// [1. Jan, 1. Feb, ..., 1. Jan Folgejahr]. Gepuffert, weil sie bei jedem
+// Rendern gebraucht werden.
+const lutarymBoundsCache = new Map();
+function lutarymMonthBounds(tz, year) {
+  const key = `${tz || ''}|${year}`;
+  let b = lutarymBoundsCache.get(key);
+  if (!b) {
+    b = [];
+    for (let m = 0; m <= 12; m++) b.push(lutarymAt(tz, year, m, 1));
+    if (lutarymBoundsCache.size > 64) lutarymBoundsCache.clear();
+    lutarymBoundsCache.set(key, b);
+  }
+  return b;
+}
+
+// Monat 0-11 eines Zeitpunkts innerhalb der Grenzen, sonst -1.
+function lutarymMonthOf(bounds, ms) {
+  if (!(ms >= bounds[0] && ms < bounds[12])) return -1;
+  let m = 0;
+  while (ms >= bounds[m + 1]) m++;
+  return m;
+}
+
+// Beginn eines Statistikeintrags in ms. Aktuelle Kerne liefern Epoch-
+// Millisekunden (websocket_api.py), aeltere eine ISO-Zeichenkette.
+function lutarymRowMs(row) {
+  const v = row && row.start;
+  return typeof v === 'number' ? v : Date.parse(v);
+}
+
+// Leistungseinheiten, die Home Assistant umrechnen kann
+// (util/unit_conversion.py, PowerConverter.VALID_UNITS).
+const LUT_POWER_UNITS = new Set(['mW', 'W', 'kW', 'MW', 'GW', 'TW', 'BTU/h']);
+
 // ── Automatische Raumerkennung (rooms-Preset) ─────────────────────────
-// Grundlage ist allein die device_class: jeder Sensor mit device_class
-// 'energy' und einer Zaehler-state_class kommt als Raum in Frage. Die
-// Wortlisten unten dienen nur dazu, aus Energie- und Leistungssensor
-// denselben Namensstamm zu gewinnen, damit die beiden gepaart werden
-// koennen. Die Entity- und Geraete-Registry bleibt aussen vor: sie ist
-// fuer Custom Cards nicht dokumentiert und ihr Abruf braucht Adminrechte.
+// Jeder Sensor mit device_class 'energy' und einer Zaehler-state_class
+// kommt in Frage. Gruppiert wird nach dem Bereich aus der Entity- und
+// Geraete-Registry (lutarymLoadAreas). Die Wortlisten dienen nur dazu, aus
+// Energie- und Leistungssensor denselben Namensstamm zu gewinnen, damit
+// die beiden gepaart werden koennen, und um Zaehler auszusortieren, die
+// keinen Verbrauch messen.
 const LUT_ENERGY_TAIL = ['energie','energy','verbrauch','consumption','kwh','wh',
                          'total','gesamt','zaehler','zahler','counter','meter'];
 const LUT_POWER_TAIL  = ['leistung','power','watt','w','aktuell','current',
@@ -771,10 +933,18 @@ const LUT_PERIOD_WORDS = ['heute','today','gestern','yesterday','taeglich','dail
                           'jahr','year','yearly','quartal','quarter','stunde',
                           'hour','hourly','letzte','last','vorjahr','vormonat',
                           'vorwoche','bisher'];
+// Zaehler, die keinen Verbrauch messen, oder nur einen Teil davon:
+// Einspeisung, Erzeugung (auch Waermemengen einer Waermepumpe) und
+// Einzelphasen. Steht so ein Zaehler im selben Bereich wie der eigentliche
+// Verbrauchszaehler, wuerde er dessen Wert verdoppeln oder Erzeugung als
+// Verbrauch buchen. Verglichen wird wortweise, nicht als Teilstring:
+// "solarium" ist kein "solar".
+const LUT_NOT_CONSUMPTION = ['returned','return','export','exported','einspeisung',
+                             'eingespeist','rueckspeisung','rückspeisung','feedin',
+                             'production','produced','generation','generated',
+                             'erzeugung','erzeugt','ertrag','yield','pv','solar',
+                             'phase','l1','l2','l3'];
 
-// Schneidet die bekannten Endungen ab, damit
-// sensor.wallbox_strom_energie und sensor.wallbox_strom_leistung
-// beide auf den Stamm "wallbox_strom" fallen.
 // Zeilenzahl aus der Kartenkonfiguration. grid_options ist die aktuelle
 // Form, layout_options die aeltere; 'auto' und alles Unbrauchbare ergibt
 // null, dann gilt die Hoehe aus der Kartenbreite.
@@ -784,6 +954,9 @@ function lutarymGridRows(config) {
   return (Number.isFinite(n) && n > 0) ? Math.min(100, Math.round(n)) : null;
 }
 
+// Schneidet die bekannten Endungen ab, damit
+// sensor.wallbox_strom_energie und sensor.wallbox_strom_leistung
+// beide auf den Stamm "wallbox_strom" fallen.
 function lutarymStem(entityId, tail) {
   const parts = entityId.slice(entityId.indexOf('.') + 1).split('_');
   while (parts.length > 1 && tail.includes(parts[parts.length - 1])) parts.pop();
@@ -799,11 +972,6 @@ function lutarymRoomName(friendly, fallbackId) {
   return words.join(' ') || fallbackId || '';
 }
 
-// Findet die in Frage kommenden Zaehler und gruppiert sie nach dem
-// Bereich, dem sie in Home Assistant zugeordnet sind. areaOf bildet
-// entity_id auf {id, name} ab; fehlt die Zuordnung, bleibt der Zaehler
-// aussen vor - sein Verbrauch steckt dann in der Zeile "Sonstige", die
-// ohnehin die Differenz zum Gesamtzaehler ist.
 // Baut entity_id -> {id, name} des zugeordneten Bereichs. Die drei
 // list-Kommandos sind nicht adminpflichtig (anders als create/update/delete)
 // und liefern, was das hass-Objekt selbst nicht enthaelt. Eine Entity haengt
@@ -826,6 +994,11 @@ async function lutarymLoadAreas(hass) {
   return map;
 }
 
+// Findet die in Frage kommenden Zaehler und gruppiert sie nach dem
+// Bereich, dem sie in Home Assistant zugeordnet sind. areaOf bildet
+// entity_id auf {id, name} ab; fehlt die Zuordnung, bleibt der Zaehler
+// aussen vor - sein Verbrauch steckt dann in der Zeile "Sonstige", die
+// ohnehin die Differenz zum Gesamtzaehler ist.
 function lutarymDetectRooms(hass, opts) {
   const states = hass && hass.states;
   if (!states) return [];
@@ -860,7 +1033,11 @@ function lutarymDetectRooms(hass, opts) {
     const lowNm = name.toLowerCase();
     if (exTerms.some(x => lowId.includes(x) || lowNm.includes(x))) continue;
     if (inc && !lowId.includes(inc) && !lowNm.includes(inc)) continue;
-    if (skipPeriods && objId.toLowerCase().split('_').some(w => LUT_PERIOD_WORDS.includes(w))) continue;
+    const idWords = objId.toLowerCase().split('_');
+    if (skipPeriods && idWords.some(w => LUT_PERIOD_WORDS.includes(w))) continue;
+    const nameWords = lowNm.split(/[^a-z0-9äöüß]+/);
+    if (idWords.some(w => LUT_NOT_CONSUMPTION.includes(w))
+        || nameWords.some(w => LUT_NOT_CONSUMPTION.includes(w))) continue;
     found.push({
       label: lutarymRoomName(name, objId),
       entity: id,
@@ -1149,19 +1326,21 @@ class EnergyChartsByLutarym extends HTMLElement {
       const changed = !this._config
         || this._config.card_type !== cardType
         || this._config.energy_entity !== (config.energy_entity || config.entity || '')
-        || this._config.previous_year_kwh != config.previous_year_kwh;
+        || this._config.previous_year_kwh !== lutarymNum(config.previous_year_kwh);
       this._config = {
         card_type: cardType,
         energy_entity: config.energy_entity || config.entity || '',
         entity: config.energy_entity || config.entity || '', // so notConfigured checks pass
-        price_per_kwh: config.price_per_kwh,
-        base_fee_yearly: config.base_fee_yearly,
-        base_fee_monthly: config.base_fee_monthly,
+        // Zahlen einmal hier einlesen (auch "0,32"), danach sind es Zahlen
+        // oder null.
+        price_per_kwh: lutarymNum(config.price_per_kwh),
+        base_fee_yearly: lutarymNum(config.base_fee_yearly),
+        base_fee_monthly: lutarymNum(config.base_fee_monthly),
         base_fee_mode: config.base_fee_mode || 'accrued',
         currency: config.currency || 'EUR',
-        previous_year_kwh: config.previous_year_kwh,
+        previous_year_kwh: lutarymNum(config.previous_year_kwh),
         title: config.title ?? presetInfo(this._hass, cardType).title,
-        titleFontSize: Number(config.title_font_size) || 14,
+        titleFontSize: lutarymNum(config.title_font_size) || 14,
         appearance: config.appearance ?? 'auto',
       };
       if (changed) { this._overviewData = null; this._lastFetch = 0; }
@@ -1208,11 +1387,11 @@ class EnergyChartsByLutarym extends HTMLElement {
         autoExclude,
         // Nebeneinander statt untereinander. Bei 1 bleibt das bisherige
         // einzeilige Layout, ab 2 rutscht der Balken unter den Namen.
-        roomsColumns: Math.min(3, Math.max(1, Number(config.rooms_columns) || 1)),
+        roomsColumns: Math.min(3, Math.max(1, Math.round(lutarymNum(config.rooms_columns) || 1))),
         entity: config.total_entity || (roomsIn.length || roomsAuto ? '__rooms__' : ''), // notConfigured check
         rooms: roomsIn.map(r => ({ name: r.name || '', entity: r.entity || '', power_entity: r.power_entity || '' })),
         title: config.title ?? presetInfo(this._hass, cardType).title,
-        titleFontSize: Number(config.title_font_size) || 14,
+        titleFontSize: lutarymNum(config.title_font_size) || 14,
         appearance: config.appearance ?? 'auto',
         color: lutarymSafeColor(config.color, preset.color),
       };
@@ -1229,8 +1408,10 @@ class EnergyChartsByLutarym extends HTMLElement {
     const info = presetInfo(this._hass, cardType);
 
     const newEntity = config.entity ?? preset.entity;
-    const rawYearsBack = config.years_back != null ? Number(config.years_back) : 1;
-    const newYearsBack = Math.min(3, Math.max(0, rawYearsBack));
+    // Ohne Pruefung ergab years_back: 'abc' NaN und damit gar kein Jahr,
+    // 1.5 eine Jahresschleife mit Bruchzahlen.
+    const rawYearsBack = lutarymNum(config.years_back);
+    const newYearsBack = Math.min(3, Math.max(0, Math.round(rawYearsBack ?? 1)));
     // 'minmax' only applies for presets that opt in (supportsRange); otherwise always 'mean'.
     const newStatMode = (preset.supportsRange && config.stat_mode === 'minmax') ? 'minmax' : 'mean';
     // No default here either — this is a second, distinct entity (instantaneous power,
@@ -1287,15 +1468,14 @@ class EnergyChartsByLutarym extends HTMLElement {
       colorTemp:  lutarymSafeColor(config.color_temp, '#0ea5e9'),
       colorDistance: lutarymSafeColor(config.color_distance, '#84cc16'),
       appearance: config.appearance ?? 'auto', // 'auto' | 'light' | 'dark'
-      titleFontSize: Number(config.title_font_size) || 14,
-      labelFontSize: config.label_font_size ? Number(config.label_font_size) : null, // null = automatic (responsive)
+      titleFontSize: lutarymNum(config.title_font_size) || 14,
+      labelFontSize: lutarymNum(config.label_font_size) || null, // null = automatic (responsive)
       yearsBack:  newYearsBack, // 0-3, how many years in addition to the current year are shown
       statMode:   newStatMode,  // 'mean' | 'minmax' — only meaningful for presets with supportsRange
       // Installed capacity reference line — only meaningful for presets with supportsCapacityLine.
       // No default: never assume a value for a card shared publicly. Purely a display constant,
       // doesn't affect data fetching.
-      kwp: (preset.supportsCapacityLine && config.kwp != null && config.kwp !== ''
-            && Number.isFinite(Number(config.kwp))) ? Number(config.kwp) : null,
+      kwp: (preset.supportsCapacityLine && lutarymNum(config.kwp) > 0) ? lutarymNum(config.kwp) : null,
       // Whether to show the number above each bar — applies to every card
       // type, purely a rendering choice, default on. Doesn't affect the
       // axis scale or the summary line above the chart.
@@ -1308,11 +1488,10 @@ class EnergyChartsByLutarym extends HTMLElement {
       // set, the axis is exactly this, no nice-rounding. yHeadroom: percent of
       // extra space above the highest bar in automatic mode (default 20).
       // Number('abc') ergibt NaN; ohne Pruefung faellt die Achsenrechnung
-      // dann komplett aus (jede Balkenhoehe wird NaN).
-      yMax: Number.isFinite(Number(config.y_max)) && config.y_max !== '' && config.y_max != null
-        ? Number(config.y_max) : null,
-      yHeadroom: Number.isFinite(Number(config.y_headroom)) && config.y_headroom !== '' && config.y_headroom != null
-        ? Math.max(0, Number(config.y_headroom)) : null,
+      // dann komplett aus (jede Balkenhoehe wird NaN). lutarymNum gibt dann
+      // null zurueck.
+      yMax: lutarymNum(config.y_max),
+      yHeadroom: lutarymNum(config.y_headroom) != null ? Math.max(0, lutarymNum(config.y_headroom)) : null,
     };
     this._preset = preset;
 
@@ -1375,97 +1554,6 @@ class EnergyChartsByLutarym extends HTMLElement {
     return { card_type: 'energy' };
   }
 
-  // Modern approach (HA automatically renders a native <ha-form> if the
-  // editor component below fails to load for some reason). Serves as a
-  // fallback/extra safeguard so a GUI form is guaranteed to appear.
-  static getConfigForm() {
-    const lang = (typeof navigator !== 'undefined' ? navigator.language : 'en') || 'en';
-    const fallbackHass = { language: lang };
-    return {
-      schema: [
-        {
-          name: 'card_type',
-          required: true,
-          selector: {
-            select: {
-              mode: 'dropdown',
-              options: CARD_TYPE_KEYS.map(k => ({ value: k, label: presetInfo(fallbackHass, k).label })),
-            },
-          },
-        },
-        { name: 'entity', selector: { entity: {} } },
-        { name: 'title', selector: { text: {} } },
-        {
-          name: 'stat_mode',
-          selector: {
-            select: {
-              mode: 'dropdown',
-              options: [
-                { value: 'mean',   label: t(fallbackHass, 'statModeMean') },
-                { value: 'minmax', label: t(fallbackHass, 'statModeMinMax') },
-              ],
-            },
-          },
-        },
-        {
-          name: 'years_back',
-          selector: {
-            select: {
-              mode: 'dropdown',
-              options: [
-                { value: '0', label: t(fallbackHass, 'yearsBack0') },
-                { value: '1', label: t(fallbackHass, 'yearsBack1') },
-                { value: '2', label: t(fallbackHass, 'yearsBack2') },
-                { value: '3', label: t(fallbackHass, 'yearsBack3') },
-              ],
-            },
-          },
-        },
-        { name: 'show_values', selector: { boolean: {} } },
-        { name: 'show_legend', selector: { boolean: {} } },
-        { name: 'y_max', selector: { number: { min: 0, mode: 'box' } } },
-        { name: 'y_headroom', selector: { number: { min: 0, max: 200, mode: 'box', unit_of_measurement: '%' } } },
-        { name: 'color', selector: { text: { type: 'color' } } },
-        { name: 'color_prev', selector: { text: { type: 'color' } } },
-        { name: 'color_text', selector: { text: { type: 'color' } } },
-        { name: 'color_dim', selector: { text: { type: 'color' } } },
-        {
-          name: 'appearance',
-          selector: {
-            select: {
-              mode: 'dropdown',
-              options: [
-                { value: 'auto', label: t(fallbackHass, 'appearanceAuto') },
-                { value: 'light', label: t(fallbackHass, 'appearanceLight') },
-                { value: 'dark', label: t(fallbackHass, 'appearanceDark') },
-              ],
-            },
-          },
-        },
-        { name: 'title_font_size', selector: { number: { min: 8, max: 32, mode: 'box', unit_of_measurement: 'px' } } },
-        { name: 'label_font_size', selector: { number: { min: 6, max: 20, mode: 'box', unit_of_measurement: 'px' } } },
-      ],
-      computeLabel: (schema) => ({
-        card_type: t(fallbackHass, 'editorCardType'),
-        entity: t(fallbackHass, 'editorEntity'),
-        title: t(fallbackHass, 'editorTitle'),
-        stat_mode: t(fallbackHass, 'editorStatMode'),
-        years_back: t(fallbackHass, 'editorYearsBack'),
-        show_values: t(fallbackHass, 'editorShowValues'),
-        show_legend: t(fallbackHass, 'editorShowLegend'),
-        y_max: t(fallbackHass, 'editorYMax'),
-        y_headroom: t(fallbackHass, 'editorYHeadroom'),
-        color: t(fallbackHass, 'colorCurrentYear'),
-        color_prev: t(fallbackHass, 'colorPreviousYears'),
-        color_text: t(fallbackHass, 'colorTextValues'),
-        color_dim: t(fallbackHass, 'colorDimLabel'),
-        appearance: t(fallbackHass, 'editorAppearance'),
-        title_font_size: t(fallbackHass, 'editorTitleFontSize'),
-        label_font_size: t(fallbackHass, 'editorLabelFontSize'),
-      })[schema.name] ?? schema.name,
-    };
-  }
-
   // ── Data fetching ────────────────────────────────────────────────────
 
   // True if the current preset+config combination should fetch/render the
@@ -1474,36 +1562,58 @@ class EnergyChartsByLutarym extends HTMLElement {
     return !!(this._preset?.supportsRange && this._config?.statMode === 'minmax');
   }
 
+  // ── Statistikabruf ────────────────────────────────────────────────────
+  // Alle Abrufe laufen ueber recorder/statistics_during_period. Belegt am
+  // Home-Assistant-Quellcode (recorder/websocket_api.py, statistics.py):
+  //   - start_time wird je period in der SERVER-Zeitzone auf den Beginn des
+  //     Tages bzw. Monats zurueckgesetzt.
+  //   - end_time wird bei 'month' auf das Ende des Monats verschoben, in den
+  //     es faellt, bei 'day' auf das Ende des Tages. Danach gilt
+  //     start < end_time, also exklusiv.
+  //   - 'change' des ersten Eintrags rechnet gegen die letzte Summe VOR dem
+  //     ausgerichteten Start, ein Januar ist also vollstaendig.
+  //   - start/end kommen als Epoch-Millisekunden zurueck.
+  //   - Ohne units rechnet HA in die aktuelle Zustandseinheit um, mit units
+  //     in die angeforderte Einheit der Einheitenklasse.
+
+  // Abruf fuer ein Kalenderjahr in Serverzeit. end_time ist der letzte
+  // Augenblick des Jahres und nicht der 1. Januar des Folgejahres: diesen
+  // verschiebt HA bei period 'month' auf den 1. Februar, mitgeliefert kaeme
+  // dann der Januar des Folgejahres.
+  _statsRequest(ids, year, period, types, units) {
+    const tz = lutarymServerTz(this._hass);
+    const b = lutarymMonthBounds(tz, year);
+    const req = {
+      type:          'recorder/statistics_during_period',
+      start_time:    new Date(b[0]).toISOString(),
+      end_time:      new Date(b[12] - 1).toISOString(),
+      statistic_ids: Array.isArray(ids) ? ids : [ids],
+      period,
+      types,
+    };
+    if (units) req.units = units;
+    return req;
+  }
+
+  // Ordnet Monatseintraege den Monaten 0-11 des Jahres zu, nach ihrem
+  // Beginn in Serverzeit. Eintraege ausserhalb des Jahres fallen weg.
+  _byMonth(rows, year, pick) {
+    const b = lutarymMonthBounds(lutarymServerTz(this._hass), year);
+    const out = new Array(12).fill(null);
+    for (const r of rows || []) {
+      const m = lutarymMonthOf(b, lutarymRowMs(r));
+      if (m >= 0) out[m] = pick(r);
+    }
+    return out;
+  }
+
   async _fetchYear(year, entity = this._config.entity) {
     const rangeMode = this._isRangeMode();
     const statType  = this._preset.statType; // 'mean' or 'change'
     const types     = rangeMode ? ['mean', 'min', 'max'] : [statType];
-    const wsRequest = {
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'month',
-      types,
-    };
-    if (!rangeMode && statType === 'change') {
-      wsRequest.units = { energy: 'kWh' };
-    }
-
-    const result = await this._hass.callWS(wsRequest);
-    const stats = result?.[entity] ?? [];
-    return Array.from({ length: 12 }, (_, month) => {
-      // WICHTIG: sowohl Monat als auch Jahr prüfen, nicht nur Monat -
-      // sonst kann bei einer inklusiven end_time-Grenze der Recorder-API
-      // der Januar-Eintrag des FOLGEJAHRS versehentlich in die Abfrage
-      // dieses Jahres hineinrutschen und von .find() fälschlich für
-      // Monat 0 (Januar) genommen werden. Symptom war: Januar zeigte in
-      // allen Kartentypen für JEDES Jahr denselben (falschen) Wert.
-      const entry = stats.find(s => {
-        const d = new Date(s.start);
-        return d.getMonth() === month && d.getFullYear() === year;
-      });
-      if (!entry) return null;
+    const units     = (!rangeMode && statType === 'change') ? { energy: 'kWh' } : null;
+    const result = await this._hass.callWS(this._statsRequest(entity, year, 'month', types, units));
+    return this._byMonth(result?.[entity], year, entry => {
       if (rangeMode) {
         if (entry.min == null && entry.max == null && entry.mean == null) return null;
         return { mean: entry.mean ?? null, min: entry.min ?? null, max: entry.max ?? null };
@@ -1512,205 +1622,106 @@ class EnergyChartsByLutarym extends HTMLElement {
     });
   }
 
-  // Detect whether an entity reports power (W/kW) rather than energy (kWh/Wh),
-  // so the efficiency preset knows to integrate it instead of using change.
+  // Liefert eine Entity Leistung (W, kW, ...) statt Energie (kWh)? Dann wird
+  // sie aus den Stundenmitteln integriert statt ueber 'change' gelesen.
+  // Frueher galten nur "w" und "kw"; ein Sensor in MW oder BTU/h lief als
+  // Energiezaehler durch, bekam keine Werte, und die Ladeeffizienz stand
+  // dann auf 100 %.
   _entityIsPower(entity) {
-    const unit = this._hass?.states?.[entity]?.attributes?.unit_of_measurement;
-    if (!unit) return false;
-    const u = String(unit).trim().toLowerCase();
-    return u === 'w' || u === 'kw';
+    const a = this._hass?.states?.[entity]?.attributes;
+    if (!a) return false;
+    if (a.device_class === 'power') return true;
+    return LUT_POWER_UNITS.has(String(a.unit_of_measurement || '').trim());
   }
 
-  // Per-hour ENERGY (kWh) from a cumulative energy sensor's exact hourly
-  // "change" statistic. Returned as Map(hourStartISO → kWh). Kept forever by
-  // HA for sum sensors, so this spans the full history — not just ~11 days.
-  async _fetchEnergyHours(entity, year) {
-    const res = await this._hass.callWS({
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'hour',
-      types:         ['change'],
-      units:         { energy: 'kWh' },
-    });
-    const rows = res?.[entity] ?? [];
+  // Energie (kWh) je Stunde als Map(Stundenbeginn ms -> kWh).
+  //   kind 'energy': 'change' eines Zaehlers, exakt.
+  //   kind 'power':  Stundenmittel in kW (HA rechnet um, gleich welche
+  //                  Einheit der Sensor hat) mal eine Stunde.
+  // Stunden ohne Statistik fehlen in der Map - fehlend heisst unbekannt,
+  // nicht null.
+  async _fetchHourly(entity, year, kind, importOnly = false) {
+    const req = kind === 'power'
+      ? this._statsRequest(entity, year, 'hour', ['mean'], { power: 'kW' })
+      : this._statsRequest(entity, year, 'hour', ['change'], { energy: 'kWh' });
+    const res = await this._hass.callWS(req);
+    const b = lutarymMonthBounds(lutarymServerTz(this._hass), year);
+    const sign = importOnly && this._config.gridImportNegative ? -1 : 1;
     const map = new Map();
-    for (const r of rows) {
-      const v = Number(r.change);
+    for (const r of res?.[entity] ?? []) {
+      const v = Number(kind === 'power' ? r.mean : r.change);
       if (!Number.isFinite(v)) continue;
-      if (new Date(r.start).getFullYear() !== year) continue;
-      map.set(r.start, v);
+      const ms = lutarymRowMs(r);
+      if (lutarymMonthOf(b, ms) < 0) continue;
+      map.set(ms, kind === 'power' && importOnly ? Math.max(0, v * sign) : v);
     }
     return map;
   }
 
-  // Per-hour grid IMPORT energy (kWh) derived from a POWER sensor's hourly
-  // mean, import only. Sign is configurable because some meters report import
-  // as negative. Returned as Map(hourStartISO → kWh). Only used when the grid
-  // entity is a power sensor; an energy (kWh) grid entity uses _fetchEnergyHours.
-  async _fetchPowerImportHours(entity, year) {
-    const res = await this._hass.callWS({
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'hour',
-      types:         ['mean'],
-    });
-    const rows = res?.[entity] ?? [];
-    const unit = String(
-      this._hass?.states?.[entity]?.attributes?.unit_of_measurement || 'W'
-    ).trim().toLowerCase();
-    const toKW = unit === 'kw' ? 1 : 1 / 1000;
-    const sign = this._config.gridImportNegative ? -1 : 1;
-    const map = new Map();
-    for (const r of rows) {
-      const mean = Number(r.mean);
-      if (!Number.isFinite(mean)) continue;
-      if (new Date(r.start).getFullYear() !== year) continue;
-      map.set(r.start, Math.max(0, mean * sign) * toKW); // one-hour bucket → kWh
-    }
-    return map;
-  }
-
-  // Monthly ENERGY (kWh) for an entity that may be POWER (W/kW) or ENERGY
-  // (kWh). Power → integrate hourly means (mean · 1h), summed per month.
-  // Energy → monthly change. Used by the COP preset, where both the produced
-  // and consumed sides are Heishamon power sensors.
+  // Monatsenergie (kWh) einer Entity, die Leistung oder Energie liefern
+  // kann. Leistung: Stundenmittel integriert und je Monat summiert. Energie:
+  // 'change' je Monat. Fuer den COP, wo Waermeseite und Stromseite beides
+  // sein koennen.
   async _fetchMonthlyEnergy(entity, year) {
-    if (this._entityIsPower(entity)) {
-      const res = await this._hass.callWS({
-        type:          'recorder/statistics_during_period',
-        start_time:    new Date(year, 0, 1).toISOString(),
-        end_time:      new Date(year + 1, 0, 1).toISOString(),
-        statistic_ids: [entity],
-        period:        'hour',
-        types:         ['mean'],
-      });
-      const rows = res?.[entity] ?? [];
-      const unit = String(
-        this._hass?.states?.[entity]?.attributes?.unit_of_measurement || 'W'
-      ).trim().toLowerCase();
-      const toKW = unit === 'kw' ? 1 : 1 / 1000;
-      const months = new Array(12).fill(null);
-      for (const r of rows) {
-        const mean = Number(r.mean);
-        if (!Number.isFinite(mean)) continue;
-        const d = new Date(r.start);
-        if (d.getFullYear() !== year) continue;
-        months[d.getMonth()] = (months[d.getMonth()] ?? 0) + Math.max(0, mean) * toKW;
-      }
-      return months;
+    if (!this._entityIsPower(entity)) return this._fetchYear(year, entity);
+    const hours = await this._fetchHourly(entity, year, 'power');
+    const b = lutarymMonthBounds(lutarymServerTz(this._hass), year);
+    const months = new Array(12).fill(null);
+    for (const [ms, kwh] of hours) {
+      const m = lutarymMonthOf(b, ms);
+      months[m] = (months[m] ?? 0) + Math.max(0, kwh);
     }
-    // Energy sensor: monthly change (kWh).
-    return this._fetchYear(year, entity);
+    return months;
   }
-  // this is a different measurement than the energy entity above (power vs.
-  // cumulative energy), so it needs its own recorder query. Only called when
-  // a power entity is actually configured.
+
+  // Monatliche Spitzenleistung. Eigene Abfrage, weil Leistung eine andere
+  // Messgroesse ist als die Energie der Haupt-Entity.
   async _fetchPeakPower(year) {
     const entity = this._config.powerEntity;
-    const wsRequest = {
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'month',
-      types:         ['max'],
-      units:         { power: 'kW' }, // normalize regardless of whether the entity reports W, kW, ...
-    };
-    const result = await this._hass.callWS(wsRequest);
-    const stats = result?.[entity] ?? [];
-    return Array.from({ length: 12 }, (_, month) => {
-      const entry = stats.find(s => {
-        const d = new Date(s.start);
-        return d.getMonth() === month && d.getFullYear() === year;
-      });
-      return entry?.max ?? null;
-    });
+    const result = await this._hass.callWS(
+      this._statsRequest(entity, year, 'month', ['max'], { power: 'kW' }));
+    return this._byMonth(result?.[entity], year, e => e.max ?? null);
   }
 
-  // Monthly distance driven — a cumulative counter (odometer-style), so
-  // 'change' (like the wallbox energy sensor itself) is the meaningful
-  // monthly statistic here, not mean/min/max.
+  // Gefahrene Kilometer je Monat - ein Zaehler wie der Energiesensor, also
+  // 'change'. Die HA-Einheitenklasse heisst "distance" (nicht "length"):
+  // mit falschem Schluessel bliebe ein Meilenzaehler unkonvertiert.
   async _fetchDistance(year) {
     const entity = this._config.distanceEntity;
-    const wsRequest = {
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'month',
-      types:         ['change'],
-      units:         { distance: 'km' }, // HA-Einheitenklasse heisst "distance" (nicht "length") -
-                                         // mit falschem Key bleibt ein Meilen-Zaehler unkonvertiert.
-    };
-    const result = await this._hass.callWS(wsRequest);
-    const stats = result?.[entity] ?? [];
-    return Array.from({ length: 12 }, (_, month) => {
-      const entry = stats.find(s => {
-        const d = new Date(s.start);
-        return d.getMonth() === month && d.getFullYear() === year;
-      });
-      return entry?.change ?? null;
-    });
+    const result = await this._hass.callWS(
+      this._statsRequest(entity, year, 'month', ['change'], { distance: 'km' }));
+    return this._byMonth(result?.[entity], year, e => e.change ?? null);
   }
 
-  // Monthly outdoor temperature — mean, min and max together (used by both
-  // the 'mean' and 'minmax' display modes, so one query covers both; which
-  // fields actually get drawn is a rendering choice, not a fetch choice).
+  // Aussentemperatur je Monat: Mittel, Minimum und Maximum in einem Abruf.
   async _fetchTemperatureMonthly(year) {
     const entity = this._config.temperatureEntity;
-    const wsRequest = {
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'month',
-      types:         ['mean', 'min', 'max'],
-      units:         { temperature: '°C' },
-    };
-    const result = await this._hass.callWS(wsRequest);
-    const stats = result?.[entity] ?? [];
-    return Array.from({ length: 12 }, (_, month) => {
-      const entry = stats.find(s => {
-        const d = new Date(s.start);
-        return d.getMonth() === month && d.getFullYear() === year;
-      });
-      if (!entry) return null;
-      return { mean: entry.mean ?? null, min: entry.min ?? null, max: entry.max ?? null };
-    });
+    const result = await this._hass.callWS(
+      this._statsRequest(entity, year, 'month', ['mean', 'min', 'max'], { temperature: '°C' }));
+    return this._byMonth(result?.[entity], year,
+      e => ({ mean: e.mean ?? null, min: e.min ?? null, max: e.max ?? null }));
   }
 
-  // Daily outdoor temperature for 'daily' mode — current year only (see
-  // _buildChart for why). One mean value per calendar day, which is what
-  // "täglich" means here — not full raw sensor resolution, which would be
-  // hundreds of times more data for no real gain at this chart's size.
+  // Tagesmittel der Aussentemperatur, nur laufendes Jahr. Tag und Monat
+  // in Serverzeit, wie HA die Tage bildet.
   async _fetchTemperatureDaily(year) {
     const entity = this._config.temperatureEntity;
-    const wsRequest = {
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'day',
-      types:         ['mean'],
-      units:         { temperature: '°C' },
-    };
-    const result = await this._hass.callWS(wsRequest);
-    const stats = result?.[entity] ?? [];
-    return stats
-      .map(s => {
-        const d = new Date(s.start);
-        return { month: d.getMonth(), day: d.getDate(), value: s.mean ?? null };
-      })
-      .filter(p => p.value != null);
+    const tz = lutarymServerTz(this._hass);
+    const result = await this._hass.callWS(
+      this._statsRequest(entity, year, 'day', ['mean'], { temperature: '°C' }));
+    const out = [];
+    for (const s of result?.[entity] ?? []) {
+      if (s.mean == null) continue;
+      const w = lutarymWall(lutarymRowMs(s), tz);
+      if (w.y !== year) continue;
+      out.push({ month: w.mo, day: w.d, value: s.mean });
+    }
+    return out;
   }
 
-  // Derives monthly {mean, min, max} from the daily array — used when
-  // 'daily' mode has to fall back to a coarser view (narrow card), so no
-  // second network request is needed just because the card got resized.
+  // Leitet Monatswerte {mean, min, max} aus den Tageswerten ab - fuer den
+  // Fall, dass 'daily' auf einer schmalen Karte auf eine groebere Ansicht
+  // zurueckfaellt. So braucht es keinen zweiten Abruf.
   static monthlyFromDaily(daily) {
     const byMonth = Array.from({ length: 12 }, () => []);
     (daily || []).forEach(p => { if (p.value != null) byMonth[p.month].push(p.value); });
@@ -1721,59 +1732,50 @@ class EnergyChartsByLutarym extends HTMLElement {
     });
   }
 
-  // ── Overview mode: yearly consumption ──
-  // Basis ist die 'change'-Statistik pro Tag statt des kumulierten 'sum'.
-  // Grund: der alte Weg brauchte einen Statistikpunkt VOR dem 1.1. des
-  // Vorjahres als Startzaehlerstand, das Abfragefenster begann aber exakt
-  // an diesem Tag - dieser Punkt konnte also nie geliefert werden und der
-  // Vorjahreswert blieb dauerhaft leer. 'change' ist ausserdem gegen
-  // Zaehlerwechsel und Statistikluecken unempfindlich.
+  // ── Overview: Jahresverbrauch ──
+  // Grundlage ist 'change' je Tag. Das braucht keinen Zaehlerstand vor dem
+  // Abfragefenster und ist gegen Zaehlerwechsel unempfindlich.
   async _fetchOverview() {
     if (!this._hass || !this._config?.energy_entity) return;
     if (this._ovLoading) return;
     this._ovLoading = true;
     this._lastFetch = Date.now();
 
-    const entity   = this._config.energy_entity;
-    const now      = new Date();
-    const year     = now.getFullYear();
-    const jan1Prev = new Date(year - 1, 0, 1, 0, 0, 0, 0);
-    // Gleicher Kalenderstichtag im Vorjahr - Basis fuer den fairen
-    // Vorjahresvergleich. Ohne ihn stuende "bisher dieses Jahr" gegen ein
-    // volles Vorjahr, der Prozentwert waere dann allein vom Datum bestimmt
-    // (Ende September immer rund -25 %, unabhaengig vom Verbrauch).
-    const sameDayPrev = new Date(year - 1, now.getMonth(), now.getDate(),
-                                 now.getHours(), now.getMinutes(), 0, 0).getTime();
+    const entity = this._config.energy_entity;
+    const tz     = lutarymServerTz(this._hass);
+    const nowMs  = Date.now();
+    const today  = lutarymWall(nowMs, tz);
+    const year   = today.y;
+    const jan1Prev   = lutarymAt(tz, year - 1, 0, 1);
+    const jan1Cur    = lutarymAt(tz, year, 0, 1);
+    const todayStart = lutarymAt(tz, year, today.mo, today.d);
+    const todayPrev  = lutarymAt(tz, year - 1, today.mo, today.d);
 
     try {
       const result = await this._hass.callWS({
         type:          'recorder/statistics_during_period',
-        start_time:    jan1Prev.toISOString(),
-        end_time:      now.toISOString(),
+        start_time:    new Date(jan1Prev).toISOString(),
+        end_time:      new Date(nowMs).toISOString(),
         statistic_ids: [entity],
         period:        'day',
         types:         ['change'],
         units:         { energy: 'kWh' }, // sonst rechnet ein Wh-/MWh-Zaehler die Kosten um Faktor 1000 falsch
       });
-      const points = (result && result[entity]) ? result[entity] : [];
-
-      let current = 0, previous = 0, previousYtd = 0;
-      let hasCur = false, hasPrev = false;
-      let firstCurMonth = null;
-      for (const p of points) {
+      const days = [];
+      let current = 0, previous = 0, hasCur = false, hasPrev = false;
+      let firstCur = null, firstPrev = null;
+      for (const p of result?.[entity] ?? []) {
         const v = Number(p.change);
         if (!Number.isFinite(v) || v < 0) continue; // negativer Sprung = Zaehlerreset
-        const d  = new Date(p.start);
-        const py = d.getFullYear();
-        if (py === year) {
-          current += v;
-          hasCur = true;
-          if (firstCurMonth === null || d.getMonth() < firstCurMonth) firstCurMonth = d.getMonth();
-        } else if (py === year - 1) {
-          previous += v;
-          hasPrev = true;
-          if (d.getTime() < sameDayPrev) previousYtd += v;
-        }
+        const ms = lutarymRowMs(p);
+        if (ms >= jan1Cur) {
+          current += v; hasCur = true;
+          if (firstCur === null || ms < firstCur) firstCur = ms;
+        } else if (ms >= jan1Prev) {
+          previous += v; hasPrev = true;
+          if (firstPrev === null || ms < firstPrev) firstPrev = ms;
+        } else continue;
+        days.push([ms, v]);
       }
 
       if (!hasCur && !hasPrev) {
@@ -1781,20 +1783,41 @@ class EnergyChartsByLutarym extends HTMLElement {
         return;
       }
 
-      // "Sensor erst unterjaehrig vorhanden": kein Vorjahr vorhanden und das
-      // laufende Jahr beginnt nicht im Januar.
-      const partialYear = !hasPrev && firstCurMonth !== null && firstCurMonth > 0;
+      // Vergleich mit dem gleichen Zeitraum des Vorjahres, und zwar ueber
+      // volle Tage: 1. Januar bis gestern gegen 1. Januar bis zum selben
+      // Kalendertag des Vorjahres. Der heutige Tag ist erst angebrochen und
+      // stuende sonst gegen einen vollen Vorjahrestag.
+      // Beginnen die Daten im Vorjahr erst spaeter (neuer Zaehler), starten
+      // beide Zeitraeume an diesem Kalendertag - sonst stuende ein volles
+      // laufendes Jahr gegen ein angebrochenes Vorjahr, und der Vergleich
+      // zeigte einen Mehrverbrauch, den es nicht gibt.
+      let cmpStartCur = jan1Cur, cmpStartPrev = jan1Prev;
+      if (firstPrev !== null && firstPrev > jan1Prev) {
+        const f = lutarymWall(firstPrev, tz);
+        cmpStartPrev = lutarymAt(tz, year - 1, f.mo, f.d);
+        cmpStartCur  = lutarymAt(tz, year, f.mo, f.d);
+      }
+      let currentCmp = 0, previousCmp = 0;
+      for (const [ms, v] of days) {
+        if (ms >= cmpStartCur && ms < todayStart) currentCmp += v;
+        else if (ms >= cmpStartPrev && ms < todayPrev) previousCmp += v;
+      }
+      const hasCmp = hasPrev && cmpStartCur < todayStart;
 
-      const manualPrev = (this._config.previous_year_kwh != null && this._config.previous_year_kwh !== '')
-        ? Number(this._config.previous_year_kwh) : null;
+      // "Sensor erst unterjaehrig vorhanden": kein Vorjahr und das laufende
+      // Jahr beginnt nicht im Januar (Serverzeit).
+      const partialYear = !hasPrev && firstCur !== null && lutarymWall(firstCur, tz).mo > 0;
+      const manualPrev = this._config.previous_year_kwh;
 
       this._overviewData = {
+        year,
         current,
         // Anzeigewert "Vorjahr": volles Vorjahr, bzw. die manuelle Vorgabe.
         previous: manualPrev ?? (hasPrev ? previous : null),
-        // Vergleichswert: gleicher Zeitraum im Vorjahr. Zu einer manuellen
-        // Jahresvorgabe gibt es keinen - dann entfaellt der Prozentvergleich.
-        previousYtd: manualPrev != null ? null : (hasPrev ? previousYtd : null),
+        // Vergleichswerte. Zu einer manuellen Jahresvorgabe gibt es keinen
+        // Zeitraum - dann entfaellt der Prozentvergleich.
+        currentCmp:  (manualPrev == null && hasCmp) ? currentCmp : null,
+        previousYtd: (manualPrev == null && hasCmp) ? previousCmp : null,
         partialYear,
       };
     } catch (e) {
@@ -1805,55 +1828,28 @@ class EnergyChartsByLutarym extends HTMLElement {
     }
   }
 
-  // ── Rooms mode: yearly kWh per room + total ──
-  // Jahres-kWh fuer mehrere Zaehler in EINEM Aufruf. Bei nach Bereichen
-  // gruppierten Raeumen kommen leicht zwanzig Zaehler zusammen; einzeln
-  // abgefragt waeren das ebenso viele Rundreisen.
+  // ── Rooms: Jahres-kWh je Raum und Gesamt ──
+  // Alle Zaehler in EINEM Aufruf. Bei nach Bereichen gruppierten Raeumen
+  // kommen leicht zwanzig Zaehler zusammen; einzeln abgefragt waeren das
+  // ebenso viele Rundreisen.
   async _roomsYearKwhBatch(ids) {
     const list = [...new Set(ids.filter(Boolean))];
     const out = new Map();
     if (!list.length) return out;
-    const year = new Date().getFullYear();
-    const result = await this._hass.callWS({
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: list,
-      period:        'month',
-      units:         { energy: 'kWh' },
-      types:         ['change'],
-    });
+    const tz = lutarymServerTz(this._hass);
+    const year = lutarymWall(Date.now(), tz).y;
+    const b = lutarymMonthBounds(tz, year);
+    const result = await this._hass.callWS(
+      this._statsRequest(list, year, 'month', ['change'], { energy: 'kWh' }));
     for (const id of list) {
-      // Nur Punkte des abgefragten Jahres: die end_time-Grenze der
-      // Recorder-API kann den Januar des FOLGEJAHRS mitliefern.
-      const pts = (result?.[id] ?? []).filter(p => new Date(p.start).getFullYear() === year);
+      const pts = (result?.[id] ?? []).filter(p => lutarymMonthOf(b, lutarymRowMs(p)) >= 0);
       if (!pts.length) { out.set(id, null); continue; }
-      const sum = pts.reduce((a, p) =>
-        a + (typeof p.change === 'number' && p.change >= 0 ? p.change : 0), 0);
-      out.set(id, sum > 0 ? sum : null);
+      // 0 kWh ist ein Messwert, kein "keine Daten": ein Raum ohne Verbrauch
+      // zeigt 0 statt eines Strichs.
+      out.set(id, pts.reduce((a, p) =>
+        a + (typeof p.change === 'number' && p.change >= 0 ? p.change : 0), 0));
     }
     return out;
-  }
-
-  async _roomYearKwh(entity) {
-    if (!entity) return null;
-    const now = new Date();
-    const year = now.getFullYear();
-    const result = await this._hass.callWS({
-      type:          'recorder/statistics_during_period',
-      start_time:    new Date(year, 0, 1).toISOString(),
-      end_time:      new Date(year + 1, 0, 1).toISOString(),
-      statistic_ids: [entity],
-      period:        'month',
-      units:         { energy: 'kWh' },
-      types:         ['change'],
-    });
-    // Nur Punkte des abgefragten Jahres: die end_time-Grenze der Recorder-API
-    // kann den Januar-Eintrag des FOLGEJAHRS mitliefern (siehe _fetchYear).
-    const points = (result?.[entity] ?? []).filter(p => new Date(p.start).getFullYear() === year);
-    if (points.length === 0) return null;
-    const total = points.reduce((acc, p) => acc + (typeof p.change === 'number' && p.change >= 0 ? p.change : 0), 0);
-    return total > 0 ? total : null;
   }
 
   // Bereichszuordnung aus der Registry. Die drei list-Kommandos brauchen
@@ -1988,18 +1984,17 @@ class EnergyChartsByLutarym extends HTMLElement {
     }
   }
 
+  // Anteil des laufenden Jahres (Serverzeit) - fuer die anteilige
+  // Grundgebuehr.
   _yearFraction() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    const end   = new Date(now.getFullYear() + 1, 0, 1);
-    return (now - start) / (end - start);
+    const tz = lutarymServerTz(this._hass);
+    const now = Date.now();
+    const b = lutarymMonthBounds(tz, lutarymWall(now, tz).y);
+    return (now - b[0]) / (b[12] - b[0]);
   }
 
   _ovFmt(v, minD, maxD) {
-    return Number(v).toLocaleString(undefined, {
-      minimumFractionDigits: minD,
-      maximumFractionDigits: maxD ?? minD,
-    });
+    return lutarymFmt(this._hass, v, minD, maxD ?? minD);
   }
 
   async _fetchData() {
@@ -2008,160 +2003,158 @@ class EnergyChartsByLutarym extends HTMLElement {
     this._lastFetch = Date.now();
     // Laufnummer gegen Wettlaeufe: wechselt der Nutzer im Editor schnell
     // Typ oder Entity, laufen mehrere Abrufe parallel und der zuerst
-    // gestartete koennte zuletzt antworten und die neueren Daten ueberschreiben.
+    // gestartete koennte zuletzt antworten. Deshalb wird erst ganz am Ende,
+    // nach der letzten Pruefung, irgendetwas an der Karte gesetzt. Frueher
+    // landeten Reihen eines ueberholten Abrufs schon vorher in
+    // _seriesData und tauchten beim naechsten Rendern wieder auf.
     const runId = (this._fetchRun = (this._fetchRun || 0) + 1);
     this._loading = true;
     this._error   = null;
     this._render();
 
-    const currentYear = new Date().getFullYear();
-    const yearsBack    = this._config.yearsBack;
-    // oldest first, current year last — so bars are arranged from left
-    // (oldest year) to right (current year).
+    const cfg    = this._config;
+    const preset = this._preset;
+    const currentYear = lutarymWall(Date.now(), lutarymServerTz(this._hass)).y;
+    // aeltestes Jahr zuerst, laufendes Jahr zuletzt - die Balken stehen von
+    // links (alt) nach rechts (neu).
     const years = [];
-    for (let y = currentYear - yearsBack; y <= currentYear; y++) years.push(y);
+    for (let y = currentYear - cfg.yearsBack; y <= currentYear; y++) years.push(y);
 
-    const ratioMode = this._preset.isRatio && this._config.gridEntity ? this._preset.ratioMode : null;
-    // marginal_hourly und quotient_monthly holen ihre Daten komplett selbst -
-    // die Monatsreihe der Haupt-Entity wuerde dort ungenutzt verworfen.
-    const needsBaseSeries = ratioMode === null || ratioMode === 'complement_monthly';
-    const ratioTotals = years.map(() => null);
-
+    const wantPeak = !!(preset.supportsPeakPower && cfg.powerEntity);
+    const wantDist = !!(preset.supportsDistanceLine && cfg.distanceEntity);
+    const wantTemp = !!(preset.supportsTemperatureLine && cfg.temperatureEntity);
     try {
-      const results = needsBaseSeries
-        ? await Promise.all(years.map(y => this._fetchYear(y)))
-        : [];
+      // Alles parallel: Hauptreihe und die optionalen Linien haengen nicht
+      // voneinander ab.
+      const [main, peak, dist, temp] = await Promise.all([
+        this._fetchSeries(years),
+        wantPeak ? Promise.all(years.map(y => this._fetchPeakPower(y))) : [],
+        wantDist ? Promise.all(years.map(y => this._fetchDistance(y))) : [],
+        !wantTemp ? null
+          : cfg.tempMode === 'daily'
+            // Tageswerte nur fuers laufende Jahr - fuer jedes Vergleichsjahr
+            // dazu waere nur Unruhe ueber den Balken, die den Jahres-
+            // vergleich ohnehin leisten.
+            ? this._fetchTemperatureDaily(currentYear)
+            : Promise.all(years.map(y => this._fetchTemperatureMonthly(y))),
+      ]);
       if (runId !== this._fetchRun) return; // ueberholt - Ergebnis verwerfen
-      this._seriesYears = years;
-      // Efficiency preset (wallbox_eff): grid-free share of the charging,
-      // computed the marginal way per HOUR (both sensors are cumulative kWh
-      // and HA keeps their hourly "change" forever, exact — not averaged):
-      //   netzfrei_h = max(0, wallbox_h − hausbezug_h)   per hour
-      //   month %    = Σ netzfrei_h / Σ wallbox_h · 100
-      // i.e. when the wallbox drew more than the grid imported in that hour,
-      // the surplus came from PV/self. Whole-house grid import bigger than the
-      // charging ⇒ that hour counts as fully grid. If the grid entity is a
-      // POWER sensor instead of energy, its hourly mean is converted to import
-      // energy first. All in the card — no template, no extra sensor.
-      if (ratioMode === 'marginal_hourly') {
-        const gridIsPower = this._entityIsPower(this._config.gridEntity);
-        this._seriesData = await Promise.all(years.map(async (y, yi) => {
-          const [wbHours, gridHours] = await Promise.all([
-            this._fetchEnergyHours(this._config.entity, y),
-            gridIsPower
-              ? this._fetchPowerImportHours(this._config.gridEntity, y)
-              : this._fetchEnergyHours(this._config.gridEntity, y),
-          ]);
-          const free  = new Array(12).fill(0);
-          const total = new Array(12).fill(0);
-          const seen  = new Array(12).fill(false);
-          let freeYear = 0, totalYear = 0;
-          for (const [key, wb] of wbHours) {
-            if (!(wb > 0)) continue;
-            const g = gridHours.get(key) || 0;
-            const m = new Date(key).getMonth();
-            const f = Math.max(0, wb - g);
-            free[m]  += f;
-            total[m] += wb;
-            seen[m]   = true;
-            freeYear  += f;
-            totalYear += wb;
-          }
-          ratioTotals[yi] = { num: freeYear, den: totalYear };
-          return total.map((t, m) =>
-            seen[m] && t > 0 ? Math.max(0, Math.min(100, (free[m] / t) * 100)) : null
-          );
-        }));
-      } else if (this._preset.isRatio && this._config.gridEntity && this._preset.ratioMode === 'quotient_monthly') {
-        // COP/JAZ: thermal produced / electricity consumed per month.
-        // Numerator can be one OR two thermal sources (e.g. heating + DHW) so
-        // its scope matches a whole-WP electricity meter (Shelly). Power (W)
-        // sources are integrated to kWh from hourly means; energy (kWh) sources
-        // use monthly change. Denominator likewise (Shelly kWh → monthly change).
-        const heatEntities = [this._config.gridEntity];
-        if (this._config.heatEntity2) heatEntities.push(this._config.heatEntity2);
-        const [elec, heatParts] = await Promise.all([
-          Promise.all(years.map(y => this._fetchMonthlyEnergy(this._config.entity, y))),
-          Promise.all(years.map(y =>
-            Promise.all(heatEntities.map(e => this._fetchMonthlyEnergy(e, y)))
-          )),
-        ]);
-        this._seriesData = years.map((_, yi) => {
-          let heatYear = 0, elecYear = 0;
-          const months = new Array(12).fill(null).map((_, m) => {
-            const e = elec[yi]?.[m];
-            let h = null;
-            for (const part of heatParts[yi]) {
-              const v = part?.[m];
-              if (v != null) h = (h ?? 0) + v;
-            }
-            if (e == null || e <= 0 || h == null || h <= 0) return null;
-            heatYear += h;
-            elecYear += e;
-            return h / e;
-          });
-          // Jahreswert ist die Jahresarbeitszahl Sigma Waerme / Sigma Strom,
-          // nicht der Durchschnitt der zwoelf Monats-COPs.
-          ratioTotals[yi] = { num: heatYear, den: elecYear };
-          return months;
-        });
-      } else if (ratioMode === 'complement_monthly') {
-        // complement_monthly (self-consumption): (entity − other) / entity · 100,
-        // both directly-metered energy sensors, monthly.
-        const other = await Promise.all(years.map(y => this._fetchYear(y, this._config.gridEntity)));
-        if (runId !== this._fetchRun) return;
-        this._seriesData = results.map((denYear, yi) => {
-          let pvYear = 0, selfYear = 0;
-          const months = denYear.map((den, m) => {
-            const o = other[yi]?.[m];
-            if (den == null || den <= 0 || o == null) return null;
-            const used = Math.max(0, Math.min(den, den - o));
-            pvYear   += den;
-            selfYear += used;
-            return (used / den) * 100;
-          });
-          ratioTotals[yi] = { num: selfYear, den: pvYear };
-          return months;
-        });
-      } else {
-        this._seriesData = results;
-      }
-
-      if (this._preset.supportsPeakPower && this._config.powerEntity) {
-        this._peakPowerData = await Promise.all(years.map(y => this._fetchPeakPower(y)));
-      } else {
-        this._peakPowerData = [];
-      }
-
-      if (this._preset.supportsDistanceLine && this._config.distanceEntity) {
-        this._distanceData = await Promise.all(years.map(y => this._fetchDistance(y)));
-      } else {
-        this._distanceData = [];
-      }
-
-      this._temperatureDaily   = [];
-      this._temperatureMonthly = [];
-      if (runId !== this._fetchRun) return;
-      if (this._preset.supportsTemperatureLine && this._config.temperatureEntity) {
-        if (this._config.tempMode === 'daily') {
-          // Current year only — fetching+rendering daily points for every
-          // comparison year as well would be a lot of visual noise on top
-          // of the bars, which already do the year-to-year comparison job.
-          this._temperatureDaily = await this._fetchTemperatureDaily(currentYear);
-        } else {
-          this._temperatureMonthly = await Promise.all(years.map(y => this._fetchTemperatureMonthly(y)));
-        }
-      }
-      this._ratioTotals = ratioTotals;
+      this._seriesYears   = years;
+      this._seriesData    = main.series;
+      this._ratioTotals   = main.totals;
+      this._peakPowerData = peak;
+      this._distanceData  = dist;
+      this._temperatureDaily   = (wantTemp && cfg.tempMode === 'daily') ? temp : [];
+      this._temperatureMonthly = (wantTemp && cfg.tempMode !== 'daily') ? temp : [];
     } catch (err) {
       if (runId !== this._fetchRun) return;
       console.error('[energy-charts-by-lutarym]', err);
       this._error = err?.message ?? t(this._hass, 'unknownError');
     }
-
-    if (runId !== this._fetchRun) return;
     this._loading = false;
     this._render();
+  }
+
+  // Monatsreihen aller Jahre, bei den Verhaeltnis-Presets samt den
+  // Jahressummen von Zaehler und Nenner (fuer den gewichteten Jahreswert).
+  async _fetchSeries(years) {
+    const cfg = this._config;
+    const preset = this._preset;
+    const ratioMode = preset.isRatio && cfg.gridEntity ? preset.ratioMode : null;
+
+    if (ratioMode === 'marginal_hourly') {
+      // Ladeeffizienz (wallbox_eff): netzfreier Anteil des Ladens, je STUNDE
+      // gerechnet. Der Netzbezug einer Stunde deckt zuerst die Wallbox:
+      //   netzfrei_h = max(0, wallbox_h - netzbezug_h)
+      //   Monat %    = Sigma netzfrei_h / Sigma wallbox_h * 100
+      // Ist der Netzsensor ein Leistungssensor, wird sein Stundenmittel in
+      // Bezugsenergie umgerechnet.
+      // Stunden ohne Netzwert fallen heraus. Frueher zaehlten sie als
+      // Netzbezug 0, also als vollstaendig netzfrei: jede Luecke im
+      // Netzsensor hob die Ladeeffizienz an.
+      const gridKind = this._entityIsPower(cfg.gridEntity) ? 'power' : 'energy';
+      const totals = [];
+      const series = await Promise.all(years.map(async (y, yi) => {
+        const [wbHours, gridHours] = await Promise.all([
+          this._fetchHourly(cfg.entity, y, 'energy'),
+          this._fetchHourly(cfg.gridEntity, y, gridKind, true),
+        ]);
+        const b = lutarymMonthBounds(lutarymServerTz(this._hass), y);
+        const free  = new Array(12).fill(0);
+        const total = new Array(12).fill(0);
+        let freeYear = 0, totalYear = 0;
+        for (const [ms, wb] of wbHours) {
+          if (!(wb > 0)) continue;
+          const g = gridHours.get(ms);
+          if (g === undefined) continue;
+          const m = lutarymMonthOf(b, ms);
+          const f = Math.max(0, wb - Math.max(0, g));
+          free[m]  += f;
+          total[m] += wb;
+          freeYear  += f;
+          totalYear += wb;
+        }
+        totals[yi] = { num: freeYear, den: totalYear };
+        return total.map((tot, m) => tot > 0 ? Math.min(100, (free[m] / tot) * 100) : null);
+      }));
+      return { series, totals };
+    }
+
+    if (ratioMode === 'quotient_monthly') {
+      // COP/JAZ: erzeugte Waerme / verbrauchter Strom je Monat. Die Waerme
+      // kann aus einer ODER zwei Quellen kommen (Heizung + Warmwasser),
+      // damit sie zum Stromzaehler der ganzen Waermepumpe passt.
+      const heatEntities = [cfg.gridEntity];
+      if (cfg.heatEntity2) heatEntities.push(cfg.heatEntity2);
+      const [elec, heatParts] = await Promise.all([
+        Promise.all(years.map(y => this._fetchMonthlyEnergy(cfg.entity, y))),
+        Promise.all(years.map(y => Promise.all(heatEntities.map(e => this._fetchMonthlyEnergy(e, y))))),
+      ]);
+      const totals = [];
+      const series = years.map((_, yi) => {
+        let heatYear = 0, elecYear = 0;
+        const months = new Array(12).fill(null).map((_, m) => {
+          const e = elec[yi]?.[m];
+          let h = null;
+          for (const part of heatParts[yi]) {
+            const v = part?.[m];
+            if (v != null) h = (h ?? 0) + v;
+          }
+          if (e == null || e <= 0 || h == null || h <= 0) return null;
+          heatYear += h;
+          elecYear += e;
+          return h / e;
+        });
+        // Jahreswert ist die Jahresarbeitszahl Sigma Waerme / Sigma Strom,
+        // nicht der Durchschnitt der zwoelf Monats-COPs.
+        totals[yi] = { num: heatYear, den: elecYear };
+        return months;
+      });
+      return { series, totals };
+    }
+
+    const base = await Promise.all(years.map(y => this._fetchYear(y)));
+    if (ratioMode === 'complement_monthly') {
+      // Eigenverbrauch: (PV - Einspeisung) / PV * 100, beides gemessene
+      // Energie, monatlich.
+      const other = await Promise.all(years.map(y => this._fetchYear(y, cfg.gridEntity)));
+      const totals = [];
+      const series = base.map((denYear, yi) => {
+        let pvYear = 0, selfYear = 0;
+        const months = denYear.map((den, m) => {
+          const o = other[yi]?.[m];
+          if (den == null || den <= 0 || o == null) return null;
+          const used = Math.max(0, Math.min(den, den - o));
+          pvYear   += den;
+          selfYear += used;
+          return (used / den) * 100;
+        });
+        totals[yi] = { num: selfYear, den: pvYear };
+        return months;
+      });
+      return { series, totals };
+    }
+    return { series: base, totals: years.map(() => null) };
   }
 
   // ── Helpers ───────────────────────────────────────────────────────
@@ -2342,7 +2335,7 @@ class EnergyChartsByLutarym extends HTMLElement {
     // Freitextfelder werden per Template-String ins Markup geschrieben -
     // ohne Escaping zerlegt ein "&" oder "<" im Titel die Karte.
     const currency = lutarymEsc(cfg.currency || 'EUR');
-    const year = new Date().getFullYear();
+    const year = data?.year ?? lutarymWall(Date.now(), lutarymServerTz(hass)).y;
     const titleText = lutarymEsc(cfg.title || t(hass, 'ovDefaultTitle'));
 
     let inner;
@@ -2356,12 +2349,13 @@ class EnergyChartsByLutarym extends HTMLElement {
       const current  = data.current;
       const previous = data.previous;
       const previousYtd = data.previousYtd;
-      const price    = Number(cfg.price_per_kwh) || 0;
+      const currentCmp  = data.currentCmp;
+      const price    = cfg.price_per_kwh ?? 0;
       const fraction = this._yearFraction();
 
       let baseFeeYearly = 0;
-      if      (cfg.base_fee_yearly  != null && cfg.base_fee_yearly  !== '') baseFeeYearly = Number(cfg.base_fee_yearly);
-      else if (cfg.base_fee_monthly != null && cfg.base_fee_monthly !== '') baseFeeYearly = Number(cfg.base_fee_monthly) * 12;
+      if      (cfg.base_fee_yearly  != null) baseFeeYearly = cfg.base_fee_yearly;
+      else if (cfg.base_fee_monthly != null) baseFeeYearly = cfg.base_fee_monthly * 12;
       const baseFee    = (cfg.base_fee_mode === 'full') ? baseFeeYearly : baseFeeYearly * fraction;
       const energyCost = current * price;
       const totalCost  = energyCost + baseFee;
@@ -2373,13 +2367,13 @@ class EnergyChartsByLutarym extends HTMLElement {
         rows.push(`<div class="ov-row"><span>${bl}</span><span>${this._ovFmt(baseFee,2)} ${currency}</span></div>`);
       }
 
-      // Verglichen wird gegen den GLEICHEN Zeitraum des Vorjahres. Ein
-      // Vergleich gegen das volle Vorjahr waere systematisch verzerrt: er
-      // zeigte unterjaehrig immer ein Minus, egal wie sich der Verbrauch
-      // entwickelt hat.
+      // Verglichen wird gegen den GLEICHEN Zeitraum des Vorjahres, ueber
+      // volle Tage (siehe _fetchOverview). Ein Vergleich gegen das volle
+      // Vorjahr zeigte unterjaehrig immer ein Minus, egal wie sich der
+      // Verbrauch entwickelt hat.
       let compareHtml = '';
-      if (previousYtd !== null && previousYtd > 0) {
-        const diff = current - previousYtd;
+      if (previousYtd != null && previousYtd > 0 && currentCmp != null) {
+        const diff = currentCmp - previousYtd;
         const pct  = (diff / previousYtd) * 100;
         const less = diff < 0;
         compareHtml = `<div class="ov-compare ${less ? 'down' : 'up'}">${less ? '▼' : '▲'} ${this._ovFmt(Math.abs(pct),1)} % ${less ? t(hass,'ovLess') : t(hass,'ovMore')} (${this._ovFmt(Math.abs(diff),0,1)} kWh) <span class="ov-cmpnote">${t(hass,'ovVsSamePeriod',{ year: year-1 })}</span></div>`;
@@ -2405,16 +2399,12 @@ class EnergyChartsByLutarym extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        /* Keine feste Hoehe: overview und rooms bestimmen ihre Hoehe aus
-           dem Inhalt, passend zu rows:'auto'. min-height fuellt den Platz,
-           wenn doch eine feste Zeilenzahl vorgegeben ist, statt den Inhalt
-           abzuschneiden. */
+        /* Keine feste Hoehe und kein min-height:100%: dieses Preset meldet
+           rows:auto und bestimmt seine Hoehe aus dem Inhalt. Haengt die
+           Hoehe des Rahmens umgekehrt am Inhalt - etwa in einer Vorschau -,
+           triebe sich die Karte mit einer Prozenthoehe selbst nach oben. */
         :host { display:block; width:100%; box-sizing:border-box; ${this._appearanceCSSVars()} }
         ha-card { width:100%; box-sizing:border-box; padding:16px 18px; }
-        /* Kein min-height:100%. Diese beiden Presets melden rows:auto,
-           bestimmen ihre Hoehe also aus dem Inhalt. Haengt die Hoehe des
-           Rahmens umgekehrt am Inhalt - etwa in einer Vorschau -, dann
-           treibt sich die Karte mit min-height:100% selbst in die Hoehe. */
         .ov-title { font-size:${cfg.titleFontSize}px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--secondary-text-color); margin-bottom:14px; }
         .ov-hero { font-size:2.4rem; font-weight:600; line-height:1.05; color:var(--primary-text-color); font-variant-numeric:tabular-nums; }
         .ov-sub { font-size:.8rem; color:var(--secondary-text-color); margin-top:3px; }
@@ -2445,7 +2435,7 @@ class EnergyChartsByLutarym extends HTMLElement {
     const hass = this._hass;
     const cfg  = this._config;
     const data = this._roomsData;
-    const year = new Date().getFullYear();
+    const year = lutarymWall(Date.now(), lutarymServerTz(hass)).y;
     const accent = lutarymSafeColor(cfg.color, '#03a9f4');
     const cols = this._roomColumns();
     // Senkrechte Trenner zwischen den Spalten. Das Raster fuellt zeilenweise,
@@ -2457,7 +2447,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         ).join('\n        ')
       : '';
     const titleText = lutarymEsc(cfg.title || t(hass, 'rmDefaultTitle'));
-    const fmt = (v, a, b) => Number(v).toLocaleString(undefined, { minimumFractionDigits: a, maximumFractionDigits: b ?? a });
+    const fmt = (v, a, b) => lutarymFmt(hass, v, a, b ?? a);
 
     let totalStr = '…';
     let rowsHtml = '';
@@ -2786,13 +2776,13 @@ class EnergyChartsByLutarym extends HTMLElement {
       const v = (maxVal / TICKS) * i;
       const y = pad.top + plotH - (v / maxVal) * plotH;
       grid    += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${pad.left + plotW}" y2="${y.toFixed(1)}" stroke="var(--divider-color)" stroke-width="0.5" stroke-dasharray="4 3"/>`;
-      yLabels += `<text x="${pad.left - 4}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="${fAxis}" fill="var(--secondary-text-color)">${Number.isInteger(v) ? v : v.toFixed(1)}</text>`;
+      yLabels += `<text x="${pad.left - 4}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="${fAxis}" fill="var(--secondary-text-color)">${lutarymFmt(this._hass, v, 0, Number.isInteger(v) ? 0 : 1)}</text>`;
     }
     if (showRightAxis) {
       for (let i = 0; i <= TICKS; i++) {
         const v = rightMin + ((rightMax - rightMin) / TICKS) * i;
         const y = yForRight(v);
-        yLabelsRight += `<text x="${(pad.left + plotW + 6).toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="start" font-size="${fAxis}" fill="var(--secondary-text-color)">${Number.isInteger(v) ? v : v.toFixed(1)}</text>`;
+        yLabelsRight += `<text x="${(pad.left + plotW + 6).toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="start" font-size="${fAxis}" fill="var(--secondary-text-color)">${lutarymFmt(this._hass, v, 0, Number.isInteger(v) ? 0 : 1)}</text>`;
       }
     }
 
@@ -2856,7 +2846,7 @@ class EnergyChartsByLutarym extends HTMLElement {
           // tooltip on the bar itself does too.
         } else if (this._config.showValues && isCurrentSeries && fVal > 0 && primaryVal > 0) {
           // Value label only for the current year (otherwise too cluttered with multiple years)
-          valLabels += `<text x="${(xBar + barW / 2).toFixed(1)}" y="${(bY - 3).toFixed(1)}" text-anchor="middle" font-size="${fVal}" fill="${colorText}">${primaryVal.toFixed(this._preset.decimals ?? 0)}${this._preset.valueSuffix}</text>`;
+          valLabels += `<text x="${(xBar + barW / 2).toFixed(1)}" y="${(bY - 3).toFixed(1)}" text-anchor="middle" font-size="${fVal}" fill="${colorText}">${this._num(primaryVal, this._preset.decimals ?? 0)}${this._preset.valueSuffix}</text>`;
         }
 
         // Monthly peak power — a short tick per bar (not a line across the
@@ -2867,7 +2857,7 @@ class EnergyChartsByLutarym extends HTMLElement {
             const yPeak = yForRight(Math.min(Math.max(peakVal, 0), rightMax));
             const tickW = Math.max(barW * 0.6, 5);
             const tx = xBar + barW / 2;
-            const peakTooltip = EnergyChartsByLutarym.escAttr(`${barMonthLabel} ${years[s]}: ${t(this._hass, 'peakLabel')} ${peakVal.toFixed(1)} kW`);
+            const peakTooltip = EnergyChartsByLutarym.escAttr(`${barMonthLabel} ${years[s]}: ${t(this._hass, 'peakLabel')} ${this._num(peakVal, 1)} kW`);
             // Invisible wider hit line — the visible tick stays the same thin 2px mark.
             bars += `<line class="lut-tt" data-tooltip="${peakTooltip}" x1="${(tx - tickW / 2).toFixed(1)}" y1="${yPeak.toFixed(1)}" x2="${(tx + tickW / 2).toFixed(1)}" y2="${yPeak.toFixed(1)}" stroke="transparent" stroke-width="12" stroke-linecap="round"/>`;
             bars += `<line x1="${(tx - tickW / 2).toFixed(1)}" y1="${yPeak.toFixed(1)}" x2="${(tx + tickW / 2).toFixed(1)}" y2="${yPeak.toFixed(1)}" stroke="${colorText}" stroke-width="2" stroke-linecap="round" class="lut-tt" data-tooltip="${peakTooltip}"/>`;
@@ -2922,7 +2912,7 @@ class EnergyChartsByLutarym extends HTMLElement {
       // repeating it on every line/value would just be noise.
       kwpLine = `
         <line x1="${pad.left}" y1="${yKwp.toFixed(1)}" x2="${(pad.left + plotW).toFixed(1)}" y2="${yKwp.toFixed(1)}" stroke="${colorText}" stroke-width="1" stroke-dasharray="5 3" opacity="0.85"/>
-        <text x="${(pad.left + plotW + 6).toFixed(1)}" y="${(yKwp - 4).toFixed(1)}" text-anchor="start" font-size="${fAxis}" fill="${colorText}">${kwp}</text>
+        <text x="${(pad.left + plotW + 6).toFixed(1)}" y="${(yKwp - 4).toFixed(1)}" text-anchor="start" font-size="${fAxis}" fill="${colorText}">${lutarymFmt(this._hass, kwp, 0, 2)}</text>
       `;
     }
 
@@ -2948,7 +2938,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         // hoverable dot; the line itself already conveys the daily detail.
         points.filter((_, i) => i % 3 === 0 || i === points.length - 1).forEach(p => {
           const monthLabel = monthStyle === 'initial' ? MONTHS_INITIAL_L[p.month] : MONTHS_ABBR_L[p.month];
-          const tip = EnergyChartsByLutarym.escAttr(`${p.day}. ${monthLabel} ${years[lastIndex]}: ${p.v.toFixed(1)}°C`);
+          const tip = EnergyChartsByLutarym.escAttr(`${p.day}. ${monthLabel} ${years[lastIndex]}: ${this._num(p.v, 1)}°C`);
           tempLine += `<circle class="lut-tt" data-tooltip="${tip}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="transparent"/>`;
         });
       }
@@ -2975,8 +2965,8 @@ class EnergyChartsByLutarym extends HTMLElement {
         points.forEach(p => {
           const monthLabel = monthStyle === 'initial' ? MONTHS_INITIAL_L[p.m] : MONTHS_ABBR_L[p.m];
           const tipText = tempMode === 'minmax' && p.entry.min != null && p.entry.max != null
-            ? `${monthLabel} ${years[lastIndex]}: Ø ${p.entry.mean.toFixed(1)}°C (${p.entry.min.toFixed(1)}–${p.entry.max.toFixed(1)}°C)`
-            : `${monthLabel} ${years[lastIndex]}: ${p.entry.mean.toFixed(1)}°C`;
+            ? `${monthLabel} ${years[lastIndex]}: Ø ${this._num(p.entry.mean, 1)}°C (${this._num(p.entry.min, 1)}–${this._num(p.entry.max, 1)}°C)`
+            : `${monthLabel} ${years[lastIndex]}: ${this._num(p.entry.mean, 1)}°C`;
           const tip = EnergyChartsByLutarym.escAttr(tipText);
           // Invisible larger hit circle + small visible dot, same pattern as elsewhere.
           tempLine += `<circle class="lut-tt" data-tooltip="${tip}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="transparent"/>`;
@@ -3004,7 +2994,7 @@ class EnergyChartsByLutarym extends HTMLElement {
         distanceLine += `<path d="${pathD}" fill="none" stroke="${this._config.colorDistance}" stroke-width="2"/>`;
         points.forEach(p => {
           const monthLabel = monthStyle === 'initial' ? MONTHS_INITIAL_L[p.m] : MONTHS_ABBR_L[p.m];
-          const tip = EnergyChartsByLutarym.escAttr(`${monthLabel} ${years[lastIndex]}: ${p.v.toFixed(0)} km`);
+          const tip = EnergyChartsByLutarym.escAttr(`${monthLabel} ${years[lastIndex]}: ${this._num(p.v, 0)} km`);
           distanceLine += `<circle class="lut-tt" data-tooltip="${tip}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="transparent"/>`;
           distanceLine += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="${this._config.colorDistance}"/>`;
         });
@@ -3064,19 +3054,45 @@ class EnergyChartsByLutarym extends HTMLElement {
       }
     }
     if (this._isRangeMode()) {
-      const means = vals.map(v => v.mean).filter(v => v != null);
       const mins  = vals.map(v => v.min).filter(v => v != null);
       const maxs  = vals.map(v => v.max).filter(v => v != null);
       return {
-        mean: means.length ? means.reduce((a, b) => a + b, 0) / means.length : null,
+        mean: this._weightedMean(arr.map(v => v?.mean ?? null), yearIdx),
         min:  mins.length ? Math.min(...mins) : null,
         max:  maxs.length ? Math.max(...maxs) : null,
       };
     }
     if (this._preset.aggregate === 'avg') {
-      return vals.reduce((a, b) => a + b, 0) / vals.length;
+      return this._weightedMean(arr, yearIdx);
     }
     return vals.reduce((a, b) => a + b, 0);
+  }
+
+  // Zeitgewichtetes Mittel ueber die Monate eines Jahres. Jeder Monat zaehlt
+  // mit der Zeit, die sein Mittelwert abdeckt: ein angebrochener November
+  // mit drei Tagen nicht so viel wie ein voller Oktober, ein Februar nicht
+  // so viel wie ein Januar. Frueher zaehlte jeder Monat gleich, und der
+  // laufende Monat verschob den Jahreswert schon nach wenigen Tagen
+  // spuerbar. So verdichtet auch HA Stundenmittel zu Monatsmitteln.
+  _weightedMean(values, yearIdx) {
+    const year = this._seriesYears?.[yearIdx];
+    const b = year != null ? lutarymMonthBounds(lutarymServerTz(this._hass), year) : null;
+    const now = Date.now();
+    let sum = 0, weight = 0;
+    (values || []).forEach((v, m) => {
+      if (v == null) return;
+      const w = b ? Math.max(0, Math.min(b[m + 1], now) - b[m]) : 1;
+      if (!(w > 0)) return;
+      sum += v * w;
+      weight += w;
+    });
+    return weight > 0 ? sum / weight : null;
+  }
+
+  // Zahl im Format von Home Assistant (Tausender- und Dezimaltrennzeichen
+  // nach hass.locale), mit genau d Nachkommastellen.
+  _num(v, d) {
+    return lutarymFmt(this._hass, v, d, d);
   }
 
   _formatSummary(val) {
@@ -3084,16 +3100,16 @@ class EnergyChartsByLutarym extends HTMLElement {
     const unit = this._preset.unit;
     if (this._isRangeMode()) {
       const suffix = this._preset.valueSuffix;
-      const meanStr = val.mean != null ? val.mean.toFixed(0) : '–';
+      const meanStr = val.mean != null ? this._num(val.mean, 0) : '–';
       if (val.min != null && val.max != null) {
-        return `Ø ${meanStr}${suffix} (${val.min.toFixed(0)}–${val.max.toFixed(0)}${suffix})`;
+        return `Ø ${meanStr}${suffix} (${this._num(val.min, 0)}–${this._num(val.max, 0)}${suffix})`;
       }
       return `Ø ${meanStr}${suffix}`;
     }
     if (this._preset.aggregate === 'avg') {
-      return `Ø ${val.toFixed(this._preset.decimals ?? 1)} ${unit}`;
+      return `Ø ${this._num(val, this._preset.decimals ?? 1)} ${unit}`.trim();
     }
-    return `${val.toFixed(this._preset.decimals ?? 0)} ${unit}`;
+    return `${this._num(val, this._preset.decimals ?? 0)} ${unit}`.trim();
   }
 
   // Single-value formatter shared by the hover tooltip — same style as the
@@ -3103,7 +3119,7 @@ class EnergyChartsByLutarym extends HTMLElement {
     if (v == null) return '–';
     const suffix = this._preset.valueSuffix;
     const d = this._preset.decimals ?? 0;
-    return suffix ? `${v.toFixed(d)}${suffix}` : `${v.toFixed(d)} ${this._preset.unit}`;
+    return suffix ? `${this._num(v, d)}${suffix}` : `${this._num(v, d)} ${this._preset.unit}`.trim();
   }
 
   // Hover-tooltip text for one bar: month + year + value, or month + year +
@@ -3113,7 +3129,7 @@ class EnergyChartsByLutarym extends HTMLElement {
       const meanStr = val.mean != null ? this._formatValue(val.mean) : '–';
       if (val.min != null && val.max != null) {
         const suffix = this._preset.valueSuffix;
-        return `${monthLabel} ${year}: Ø ${meanStr} (${val.min.toFixed(0)}–${val.max.toFixed(0)}${suffix})`;
+        return `${monthLabel} ${year}: Ø ${meanStr} (${this._num(val.min, 0)}–${this._num(val.max, 0)}${suffix})`;
       }
       return `${monthLabel} ${year}: Ø ${meanStr}`;
     }
@@ -3133,8 +3149,8 @@ class EnergyChartsByLutarym extends HTMLElement {
     if (this._isRooms) return this._renderRooms();
     const hass = this._hass;
 
-    const now          = new Date();
-    const currentMonth = now.getMonth();
+    // Laufender Monat in Serverzeit, wie die Monatseintraege von HA
+    const currentMonth = lutarymWall(Date.now(), lutarymServerTz(hass)).mo;
     const years        = this._seriesYears;
     const lastIndex    = years.length - 1;
     const px           = this._width || 0;
@@ -3944,8 +3960,17 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
           padding-top: 12px;
           margin-top: 4px;
         }
+        .editor-version {
+          margin-top: 18px;
+          padding-top: 10px;
+          border-top: 1px solid var(--divider-color, #e0e0e0);
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          text-align: right;
+        }
       </style>
       <div class="editor-form"></div>
+      <div class="editor-version">Energy-Charts-by-Lutarym · ${lutarymEsc(t(hass, 'editorVersion', { version: CARD_VERSION }))}</div>
     `;
 
     const form = this.querySelector('.editor-form');

@@ -2,7 +2,7 @@
 
 [English](README.md) · **Deutsch** · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.2.0 · [Changelog](CHANGELOG.md)
+Version 2.3.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card für Home Assistant. Eine einzige Karte, deren Verhalten
 über `card_type` in einem grafischen Konfigurationsformular gewählt wird. Die
@@ -25,7 +25,9 @@ ihrer Standardgestaltung; Farbe, Titel und Entity lassen sich im Editor
 ![Autarkie](Image/Autarkie.png)
 
 Monatsdurchschnitt eines Autarkiegrad-Sensors in Prozent. Y-Achse fest
-0–100 %. Der Jahreswert ist der Durchschnitt, nicht die Summe.
+0–100 %. Der Jahreswert ist der Durchschnitt, nicht die Summe, und zwar
+zeitgewichtet: jeder Monat zählt mit der Zeit, die sein Mittelwert abdeckt,
+ein gerade begonnener Monat also nicht so viel wie ein voller.
 Standard-Entity: `sensor.autarkie`.
 
 ### energy — Stromverbrauch
@@ -75,12 +77,16 @@ Anteil der Wallbox-Ladung, der ohne Netzbezug stattfand. Festes
 0–100-%-Balkendiagramm je Monat. Benötigt zwei Entities:
 
 - `entity`: gesamte Ladeenergie der Wallbox (kWh).
-- `grid_entity`: Netzbezug, angegeben als **Leistung** (W/kW) oder **Energie**
-  (kWh). Leistung wird aus den aufgezeichneten Stundenmittelwerten zu
-  monatlichen Bezugs-kWh integriert (nur Bezug, keine Einspeisung).
+- `grid_entity`: Netzbezug, angegeben als **Leistung** (W, kW oder jede
+  andere Leistungseinheit, die Home Assistant kennt) oder **Energie** (kWh).
+  Leistung wird aus den aufgezeichneten Stundenmittelwerten zu Bezugs-kWh
+  integriert (nur Bezug, keine Einspeisung).
 
-Monatswert = (1 − Netzbezug_kWh ÷ Ladung_kWh) × 100, begrenzt auf 0–100.
-Kein Netzbezug in einem Monat bedeutet 100 %.
+Gerechnet wird Stunde für Stunde: der Netzbezug einer Stunde deckt zuerst
+die Ladung, der netzfreie Teil dieser Stunde ist also
+max(0, geladen − Netzbezug). Monatswert = Σ netzfreie kWh ÷ Σ geladene kWh
+× 100. Kein Netzbezug während des Ladens bedeutet 100 %. Stunden ohne
+Netzwert fallen heraus, statt als netzfrei zu zählen.
 
 Der Jahreswert in der Summenzeile ist energiegewichtet, also
 Σ netzfreie kWh ÷ Σ geladene kWh, nicht der Durchschnitt der Monatsquoten.
@@ -184,10 +190,15 @@ Konfiguration:
   Normalerweise automatisch aus der Statistik berechnet (1.1. bis 31.12. des
   Vorjahres); wird er gesetzt, entfällt der Zeitraumvergleich weiter unten.
 
-Der Prozentvergleich läuft gegen den **gleichen Zeitraum** des Vorjahres
-(1.1. bis zum heutigen Datum vor einem Jahr), nicht gegen das volle Vorjahr.
-Ein Vergleich mit dem vollen Vorjahr wäre vom Kalender bestimmt: im September
-stünde dort immer ein großes Minus, egal wie sich der Verbrauch entwickelt hat.
+Der Prozentvergleich läuft gegen den **gleichen Zeitraum** des Vorjahres,
+nicht gegen das volle Vorjahr, und über volle Tage: 1.1. bis gestern gegen
+1.1. bis zum selben Datum vor einem Jahr. Der heutige Tag hat gerade erst
+begonnen und stünde sonst gegen einen vollen Tag. Beginnt der Zähler erst
+im Lauf des Vorjahres, starten beide Zeiträume an diesem Kalendertag, damit
+ein neuer Zähler keinen Mehrverbrauch zeigt, den es nicht gibt. Ein
+Vergleich mit dem vollen Vorjahr wäre vom Kalender bestimmt: im September
+stünde dort immer ein großes Minus, egal wie sich der Verbrauch entwickelt
+hat.
 
 ### rooms — Stromverbrauch Räume
 
@@ -250,6 +261,11 @@ Immer ausgeschlossen, ohne Konfiguration:
   `taeglich`, `monat`, `jahr` oder `today` in der Entity-ID.
   Utility-Meter-Helfer tragen dieselbe Geräteklasse und würden denselben
   Verbrauch ein zweites Mal auflisten
+- Zähler für Einspeisung, Erzeugung oder eine einzelne Phase, erkannt an
+  einem Wort wie `returned`, `export`, `einspeisung`, `production`,
+  `erzeugung`, `ertrag`, `pv`, `solar`, `phase`, `l1`, `l2` oder `l3` in Entity-ID
+  oder Name. Neben dem eigentlichen Zähler im selben Bereich würden sie
+  dessen Verbrauch doppelt zählen oder Erzeugung als Verbrauch buchen
 - alles, was kein Zähler ist, etwa ein reiner Momentanwert
 
 Zwei optionale Filter:
@@ -294,7 +310,13 @@ resources:
 
 Hinzufügen über **Dashboard bearbeiten → Karte hinzufügen →
 "Energy-Charts-by-Lutarym"**. Das öffnet direkt das grafische
-Konfigurationsformular, der empfohlene Weg für alle Optionen unten.
+Konfigurationsformular, der empfohlene Weg für alle Optionen unten. Unten
+im Formular steht die installierte Version.
+
+Monate, Tage und Jahre richten sich nach der Zeitzone, die in Home Assistant
+eingestellt ist, so wie Home Assistant auch seine Statistik zusammenfasst,
+und nicht nach der Zeitzone des Browsers. Zahlen folgen dem Zahlenformat aus
+deinem Home-Assistant-Profil.
 
 ```yaml
 type: custom:energy-charts-by-lutarym
