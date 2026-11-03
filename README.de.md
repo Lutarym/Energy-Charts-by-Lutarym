@@ -2,21 +2,21 @@
 
 [English](README.md) · **Deutsch** · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.3.0 · [Changelog](CHANGELOG.md)
+Version 2.5.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card für Home Assistant. Eine einzige Karte, deren Verhalten
 über `card_type` in einem grafischen Konfigurationsformular gewählt wird. Die
 meisten Typen zeichnen monatliche Balkendiagramme (aktuelles Jahr gegen bis zu
 3 Vorjahre), einige zeigen ein berechnetes Verhältnis (Effizienz,
-Eigenverbrauch, COP), und zwei stellen statt Balken eine Text- und
-Zahlenübersicht dar (Stromübersicht, Raum-Energie). Karte und Editor sprechen
+Eigenverbrauch, COP), und drei stellen statt Balken eine Text- und
+Zahlenübersicht dar (Stromübersicht, Einspeiseübersicht, Raum-Energie). Karte und Editor sprechen
 vier Sprachen: Englisch, Deutsch, Französisch und Japanisch. Sie folgen
 automatisch `hass.language`, jede andere Spracheinstellung fällt auf Englisch
 zurück.
 
 ## Kartentypen
 
-Es gibt 13 `card_type`-Vorlagen. Jeder Screenshot unten zeigt die Vorlage in
+Es gibt 14 `card_type`-Vorlagen. Jeder Screenshot unten zeigt die Vorlage in
 ihrer Standardgestaltung; Farbe, Titel und Entity lassen sich im Editor
 überschreiben.
 
@@ -109,7 +109,9 @@ energiegewichtet.
 
 Erzeugte Wärme je eingesetzter Stromeinheit. Automatisch skalierte Achse; der
 Wert ist eine Zahl (typisch etwa 2–5), kein Prozentwert, mit 2 Nachkommastellen.
-Benötigt zwei Entities:
+Es gibt zwei Wege dorthin, gewählt mit `cop_source`.
+
+**Berechnet** (`cop_source: calculated`, Standard):
 
 - `entity`: verbrauchte elektrische Energie (kWh).
 - `heat_entity`: erzeugte thermische Energie (kWh, z. B. aus HeishaMon).
@@ -117,6 +119,21 @@ Benötigt zwei Entities:
 Monatswert = Wärme ÷ Strom. Braucht einen echten Wärmemengensensor, um
 aussagekräftig zu sein. Der Jahreswert ist die Jahresarbeitszahl
 Σ Wärme ÷ Σ Strom, nicht der Durchschnitt der zwölf Monats-COPs.
+
+**Aus einer COP-Entität der Wärmepumpe** (`cop_source: entity`):
+
+- `cop_entity`: ein Sensor, der den COP selbst liefert. **Pflicht.**
+- `entity`: Stromzähler der Wärmepumpe (kWh). Optional, aber empfohlen.
+
+Ein COP-Sensor ist ein Augenblickswert, und sein einfacher Zeitdurchschnitt
+ist nicht die Jahresarbeitszahl, weil auch der Stillstand mitzählt. Ist der
+Stromzähler gesetzt, zählt jede Stunde mit ihrem Stromverbrauch:
+Σ (COP × Strom) ÷ Σ Strom, je Monat und je Jahr. Ist der COP innerhalb einer
+Stunde gleich, ist das genau Σ Wärme ÷ Σ Strom, also derselbe Wert wie im
+Rechenmodus. Stunden ohne COP-Wert fallen heraus. Ohne Stromzähler zeigt
+die Karte den Zeitdurchschnitt des COP-Sensors, im Jahr zeitgewichtet.
+Zeigt der Sensor im Stillstand 0, ist der Rechenmodus genauer: innerhalb
+einer Stunde sieht die Karte nur den Mittelwert.
 
 ### wp — Wärmepumpe
 
@@ -199,6 +216,23 @@ ein neuer Zähler keinen Mehrverbrauch zeigt, den es nicht gibt. Ein
 Vergleich mit dem vollen Vorjahr wäre vom Kalender bestimmt: im September
 stünde dort immer ein großes Minus, egal wie sich der Verbrauch entwickelt
 hat.
+
+### overview_feedin — Einspeiseübersicht
+
+Dieselbe Übersicht für die Einspeiserichtung: gleiche Abfrage, gleiche
+Rechnung und gleicher Vorjahresvergleich wie bei `overview`, angewandt auf
+den Einspeisezähler. Aus Kosten werden Einnahmen, die Vergütung mal die im
+laufenden Jahr eingespeisten kWh. Beim Vergleich ist mehr Einspeisung das
+bessere Ergebnis, ein Plus erscheint deshalb grün und ein Minus rot. Eine
+Grundgebühr gibt es bei der Einspeisevergütung nicht, die Felder dafür
+entfallen. Konfiguration:
+
+- `energy_entity`: Einspeisezähler (kWh). **Pflicht.**
+- `price_per_kwh`: Vergütung pro kWh in EUR (z. B. `0.082` für 8,2 ct/kWh).
+  **Pflicht.**
+- `currency`: Standard `EUR`.
+- `previous_year_kwh`: optionale manuelle Vorgabe für die Einspeisung des
+  Vorjahres; wird sie gesetzt, entfällt der Zeitraumvergleich.
 
 ### rooms — Stromverbrauch Räume
 
@@ -320,7 +354,7 @@ deinem Home-Assistant-Profil.
 
 ```yaml
 type: custom:energy-charts-by-lutarym
-card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | rooms
+card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | overview_feedin | rooms
 years_back: 2             # optional: 0 | 1 | 2 | 3 zusätzliche Vorjahre (Standard: 1); nur Balken-Vorlagen
 show_values: true         # optional: Zahl über jedem Balken (nicht die Achsenskala), Standard: true; Balken-Vorlagen
 show_legend: false        # optional: kleine Jahres-Marker im Diagramm, Standard: false
@@ -351,6 +385,9 @@ feedin_entity: sensor.pv_feedin  # Pflicht: Netzeinspeisung (kWh)
 
 # --- nur cop ---
 heat_entity: sensor.heat_produced # Pflicht: erzeugte thermische Energie (kWh)
+# oder den COP direkt von der Wärmepumpe nehmen:
+# cop_source: entity              # calculated (Standard) | entity
+# cop_entity: sensor.wp_cop       # Pflicht bei cop_source: entity
 
 # --- nur overview ---
 energy_entity: sensor.stromverbrauch # Pflicht
@@ -359,6 +396,12 @@ base_fee_yearly: 120      # oder base_fee_monthly: 10
 base_fee_mode: accrued    # accrued (anteilig) | full
 currency: EUR
 previous_year_kwh: 4200   # optionale manuelle Vorgabe
+
+# --- nur overview_feedin ---
+energy_entity: sensor.einspeisung # Pflicht: Einspeisezähler (kWh)
+price_per_kwh: 0.082      # Pflicht (Vergütung, EUR pro kWh)
+currency: EUR
+previous_year_kwh: 3900   # optionale manuelle Vorgabe
 
 # --- nur rooms ---
 total_entity: sensor.grid_import  # optional
@@ -397,12 +440,13 @@ die Spitzenleistungs-Striche der pv-Vorlage zeigen ebenfalls ihren Wert).
 | wallbox | sensor.wallbox | Wallbox | `#3b82f6` | — |
 | wallbox_eff | *(keine)* | Wallbox Ladeeffizienz | `#6366f1` | `grid_entity` |
 | eigenverbrauch | *(keine)* | Eigenverbrauchsquote | `#84cc16` | `feedin_entity` |
-| cop | *(keine)* | Wärmepumpe COP | `#d946ef` | `heat_entity` |
+| cop | *(keine)* | Wärmepumpe COP | `#d946ef` | `heat_entity` oder `cop_entity` |
 | wp | sensor.waermepumpe | Wärmepumpe | `#ef4444` | — |
 | klima | sensor.klimaanlage | Klimaanlage | `#06b6d4` | — |
 | akku | sensor.akku_ladezustand | Akku-Ladezustand | `#8b5cf6` | — |
 | einspeisung | *(keine)* | PV Netz-Einspeisung | `#ec4899` | — |
 | overview | *(keine)* | Stromübersicht | `#0ea5e9` | `energy_entity`, `price_per_kwh` |
+| overview_feedin | *(keine)* | Einspeiseübersicht | `#ec4899` | `energy_entity`, `price_per_kwh` |
 | rooms | *(keine)* | Stromverbrauch Räume | `#10b981` | Liste `rooms` |
 
 Die Standard-Entities sind Platzhalter; trage im Editor deine tatsächliche

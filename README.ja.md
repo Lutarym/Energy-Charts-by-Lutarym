@@ -2,18 +2,18 @@
 
 [English](README.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · **日本語**
 
-バージョン 2.3.0 · [変更履歴](CHANGELOG.md)
+バージョン 2.5.0 · [変更履歴](CHANGELOG.md)
 
 Home Assistant 用の Lovelace カスタムカードです。1枚のカードの動作を、視覚的な
 設定フォームの `card_type` で選びます。ほとんどの種類は月ごとの棒グラフを描き
 （本年と最大3年前まで）、いくつかは計算した比率を示し（効率、自家消費率、COP）、
-2種類は棒グラフではなく数値の概要を表示します（電力概要、部屋別エネルギー）。
+3種類は棒グラフではなく数値の概要を表示します（電力概要、売電の概要、部屋別エネルギー）。
 カードとエディターは英語・ドイツ語・フランス語・日本語の4言語に対応し、
 `hass.language` に自動で従います。それ以外の言語設定では英語になります。
 
 ## カードの種類
 
-`card_type` には13種類のプリセットがあります。以下のスクリーンショットは既定の
+`card_type` には14種類のプリセットがあります。以下のスクリーンショットは既定の
 配色によるものです。色・タイトル・エンティティはエディターで変更できます。
 
 ### autarkie — 自給率
@@ -98,8 +98,10 @@ EV充電器の月間充電電力量（kWh、月の合計）。任意の重ね描
 ![ヒートポンプCOP](Image/WaermepumpeCOP.png)
 
 消費電力あたりに得られた熱量です。軸は自動調整されます。値はパーセントではなく
-数値（おおむね 2〜5）で、小数点以下2桁で表示されます。2つのエンティティが必要
-です。
+数値（おおむね 2〜5）で、小数点以下2桁で表示されます。求め方は2通りあり、
+`cop_source` で選びます。
+
+**計算する**（`cop_source: calculated`、既定）：
 
 - `entity`：消費した電力量（kWh）
 - `heat_entity`：発生した熱エネルギー（kWh、たとえば HeishaMon から）
@@ -107,6 +109,20 @@ EV充電器の月間充電電力量（kWh、月の合計）。任意の重ね描
 月間値 = 熱量 ÷ 電力量。意味のある値にするには実際の熱量センサーが必要です。
 年間値は年間成績係数 Σ 熱量 ÷ Σ 電力量であり、12か月分の COP の平均ではあり
 ません。
+
+**ヒートポンプのCOPエンティティを使う**（`cop_source: entity`）：
+
+- `cop_entity`：COPそのものを出力するセンサー。**必須**
+- `entity`：ヒートポンプの電力量計（kWh）。任意ですが推奨します。
+
+COPセンサーは瞬時値であり、その単純な時間平均は年間成績係数ではありません。
+停止中の時間も数えられてしまうためです。電力量計を指定すると、各時間をその
+消費電力量で重み付けし、月ごと・年ごとに Σ（COP × 電力量）÷ Σ 電力量 を求め
+ます。1時間の中でCOPが一定なら、これは計算モードと同じ Σ 熱量 ÷ Σ 電力量 に
+一致します。COPの値がない時間は除外します。電力量計がない場合はCOPセンサーの
+時間平均を表示し、年間値は時間で重み付けします。停止中にセンサーが 0 を示す
+場合は計算モードのほうが正確です。1時間の中ではカードは平均値しか見られない
+ためです。
 
 ### wp — ヒートポンプ
 
@@ -179,6 +195,20 @@ EV充電器の月間充電電力量（kWh、月の合計）。任意の重ね描
 新しい計器に実際には起きていない増加が表示されないようにします。通年と比べ
 ると結果が暦に支配されてしまい、実際の使用量がどうであれ9月には常に大きな
 減少として表示されてしまうためです。
+
+### overview_feedin — 売電の概要
+
+売電方向の同じ概要です。`overview` と同じ問い合わせ、同じ計算、同じ前年比較を
+売電量計に適用します。費用は収入になり、売電単価に本年これまでに売電した kWh を
+掛けた額です。比較では売電が多いほど良い結果なので、増加は緑、減少は赤で表示
+されます。売電収入には基本料金がないため、その項目は表示しません。設定：
+
+- `energy_entity`：売電量計（kWh）。**必須**
+- `price_per_kwh`：kWhあたりの売電単価（EUR）。例：8.2 ct/kWh なら `0.082`。
+  **必須**
+- `currency`：既定は `EUR`
+- `previous_year_kwh`：前年の売電量を手動で指定する任意の項目。設定すると
+  同時期比較は無効になります。
 
 ### rooms — 部屋別の電力使用量
 
@@ -291,7 +321,7 @@ Home Assistant のプロフィールの数値形式に従います。
 
 ```yaml
 type: custom:energy-charts-by-lutarym
-card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | rooms
+card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | overview_feedin | rooms
 years_back: 2             # 任意：0 | 1 | 2 | 3 追加で表示する過去の年数（既定：1）。棒グラフのプリセットのみ
 show_values: true         # 任意：各バーの上の数値（軸の目盛りではありません）、既定：true。棒グラフのプリセット
 show_legend: false        # 任意：グラフ内の小さな年マーカー、既定：false
@@ -322,6 +352,9 @@ feedin_entity: sensor.pv_feedin  # 必須：系統への売電（kWh）
 
 # --- cop のみ ---
 heat_entity: sensor.heat_produced # 必須：発生した熱エネルギー（kWh）
+# またはヒートポンプのCOPをそのまま使う：
+# cop_source: entity              # calculated（既定）| entity
+# cop_entity: sensor.wp_cop       # cop_source: entity のとき必須
 
 # --- overview のみ ---
 energy_entity: sensor.stromverbrauch # 必須
@@ -330,6 +363,12 @@ base_fee_yearly: 120      # または base_fee_monthly: 10
 base_fee_mode: accrued    # accrued（日割り）| full
 currency: EUR
 previous_year_kwh: 4200   # 任意の手動入力
+
+# --- overview_feedin のみ ---
+energy_entity: sensor.einspeisung # 必須：売電量計（kWh）
+price_per_kwh: 0.082      # 必須（売電単価、kWhあたりのユーロ）
+currency: EUR
+previous_year_kwh: 3900   # 任意の手動入力
 
 # --- rooms のみ ---
 total_entity: sensor.grid_import  # 任意
@@ -368,12 +407,13 @@ label_font_size: 10       # 任意、既定：自動
 | wallbox | sensor.wallbox | EV充電器 | `#3b82f6` | — |
 | wallbox_eff | *(なし)* | EV充電の効率 | `#6366f1` | `grid_entity` |
 | eigenverbrauch | *(なし)* | 自家消費率 | `#84cc16` | `feedin_entity` |
-| cop | *(なし)* | ヒートポンプCOP | `#d946ef` | `heat_entity` |
+| cop | *(なし)* | ヒートポンプCOP | `#d946ef` | `heat_entity` または `cop_entity` |
 | wp | sensor.waermepumpe | ヒートポンプ | `#ef4444` | — |
 | klima | sensor.klimaanlage | エアコン | `#06b6d4` | — |
 | akku | sensor.akku_ladezustand | 蓄電池の充電状態 | `#8b5cf6` | — |
 | einspeisung | *(なし)* | 太陽光の売電 | `#ec4899` | — |
 | overview | *(なし)* | 電力概要 | `#0ea5e9` | `energy_entity`、`price_per_kwh` |
+| overview_feedin | *(なし)* | 売電の概要 | `#ec4899` | `energy_entity`、`price_per_kwh` |
 | rooms | *(なし)* | 部屋別の電力使用量 | `#10b981` | `rooms` のリスト |
 
 既定のエンティティは例示です。エディターでご自身のエンティティIDを入力して

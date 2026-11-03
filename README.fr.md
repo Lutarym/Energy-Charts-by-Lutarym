@@ -2,21 +2,22 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Français** · [日本語](README.ja.md)
 
-Version 2.3.0 · [Changelog](CHANGELOG.md)
+Version 2.5.0 · [Changelog](CHANGELOG.md)
 
 Carte Lovelace personnalisée pour Home Assistant. Une seule carte dont le
 comportement se choisit avec `card_type` dans un formulaire de configuration
 graphique. La plupart des types tracent des graphiques mensuels en barres
 (année en cours contre jusqu'à 3 années précédentes), quelques-uns affichent
-un rapport calculé (efficacité, autoconsommation, COP), et deux présentent un
-résumé chiffré au lieu de barres (aperçu électricité, énergie par pièce). La
+un rapport calculé (efficacité, autoconsommation, COP), et trois présentent un
+résumé chiffré au lieu de barres (aperçu électricité, aperçu injection,
+énergie par pièce). La
 carte et son éditeur parlent quatre langues : anglais, allemand, français et
 japonais. Ils suivent automatiquement `hass.language` ; tout autre réglage de
 langue revient à l'anglais.
 
 ## Types de carte
 
-Il existe 13 préréglages `card_type`. Chaque capture ci-dessous montre le
+Il existe 14 préréglages `card_type`. Chaque capture ci-dessous montre le
 préréglage avec sa mise en forme par défaut ; couleur, titre et entité se
 redéfinissent dans l'éditeur.
 
@@ -111,7 +112,10 @@ pondérée par l'énergie comme ci-dessus.
 
 Chaleur produite par unité d'électricité consommée. Axe mis à l'échelle
 automatiquement ; la valeur est un nombre (typiquement 2 à 5 environ), pas un
-pourcentage, affiché avec 2 décimales. Nécessite deux entités :
+pourcentage, affiché avec 2 décimales. Deux façons de l'obtenir, au choix avec
+`cop_source`.
+
+**Calculé** (`cop_source: calculated`, par défaut) :
 
 - `entity` : énergie électrique consommée (kWh).
 - `heat_entity` : énergie thermique produite (kWh, p. ex. depuis HeishaMon).
@@ -120,6 +124,23 @@ Valeur mensuelle = chaleur ÷ électricité. Un véritable compteur d'énergie
 thermique est nécessaire pour que le résultat ait du sens. La valeur annuelle
 est le coefficient de performance annuel Σ chaleur ÷ Σ électricité, et non la
 moyenne des douze COP mensuels.
+
+**Depuis une entité COP de la pompe à chaleur** (`cop_source: entity`) :
+
+- `cop_entity` : un capteur qui fournit lui-même le COP. **Requis.**
+- `entity` : compteur électrique de la pompe à chaleur (kWh). Facultatif,
+  mais recommandé.
+
+Un capteur de COP donne une valeur instantanée, et sa simple moyenne dans le
+temps n'est pas le coefficient de performance annuel, car l'arrêt compte
+aussi. Avec le compteur électrique, chaque heure est pondérée par
+l'électricité consommée : Σ (COP × électricité) ÷ Σ électricité, par mois et
+par année. Si le COP est constant au cours d'une heure, c'est exactement
+Σ chaleur ÷ Σ électricité, la même valeur qu'en mode calculé. Les heures sans
+valeur de COP sont écartées. Sans compteur électrique, la carte affiche la
+moyenne dans le temps du capteur, pondérée par le temps sur l'année. Si le
+capteur indique 0 à l'arrêt, le mode calculé est plus précis : au sein d'une
+heure, la carte ne voit que la moyenne.
 
 ### wp — Pompe à chaleur
 
@@ -205,6 +226,25 @@ pour qu'un compteur neuf n'affiche pas une hausse qui n'a pas eu lieu. Une
 comparaison à l'année complète serait dictée par le calendrier : en
 septembre elle afficherait toujours une forte baisse, quelle que soit
 l'évolution réelle de la consommation.
+
+### overview_feedin — Aperçu injection
+
+Le même aperçu pour le sens de l'injection : même requête, même calcul et
+même comparaison avec l'année précédente que `overview`, appliqués au
+compteur d'injection. Le coût devient une recette, le tarif de rachat
+multiplié par les kWh injectés depuis le début de l'année. Dans la
+comparaison, davantage d'injection est le meilleur résultat : une hausse
+s'affiche donc en vert et une baisse en rouge. La rémunération de
+l'injection n'a pas d'abonnement, ces champs ne sont donc pas proposés.
+Configuration :
+
+- `energy_entity` : compteur d'injection (kWh). **Requis.**
+- `price_per_kwh` : tarif de rachat du kWh en EUR (p. ex. `0.082` pour
+  8,2 ct/kWh). **Requis.**
+- `currency` : `EUR` par défaut.
+- `previous_year_kwh` : valeur manuelle facultative pour l'injection de
+  l'année précédente ; la renseigner désactive la comparaison sur la même
+  période.
 
 ### rooms — Consommation par pièce
 
@@ -330,7 +370,7 @@ votre profil Home Assistant.
 
 ```yaml
 type: custom:energy-charts-by-lutarym
-card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | rooms
+card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | overview_feedin | rooms
 years_back: 2             # facultatif : 0 | 1 | 2 | 3 années précédentes en plus (défaut : 1) ; préréglages en barres uniquement
 show_values: true         # facultatif : le nombre au-dessus de chaque barre (pas la graduation), défaut : true ; préréglages en barres
 show_legend: false        # facultatif : petits repères d'année dans le graphique, défaut : false
@@ -361,6 +401,9 @@ feedin_entity: sensor.pv_feedin  # requis : injection réseau (kWh)
 
 # --- cop uniquement ---
 heat_entity: sensor.heat_produced # requis : énergie thermique produite (kWh)
+# ou prendre le COP directement de la pompe à chaleur :
+# cop_source: entity              # calculated (par défaut) | entity
+# cop_entity: sensor.wp_cop       # requis avec cop_source: entity
 
 # --- overview uniquement ---
 energy_entity: sensor.stromverbrauch # requis
@@ -369,6 +412,12 @@ base_fee_yearly: 120      # ou base_fee_monthly: 10
 base_fee_mode: accrued    # accrued (au prorata) | full
 currency: EUR
 previous_year_kwh: 4200   # valeur manuelle facultative
+
+# --- overview_feedin uniquement ---
+energy_entity: sensor.einspeisung # requis : compteur d'injection (kWh)
+price_per_kwh: 0.082      # requis (tarif de rachat, EUR par kWh)
+currency: EUR
+previous_year_kwh: 3900   # valeur manuelle facultative
 
 # --- rooms uniquement ---
 total_entity: sensor.grid_import  # facultatif
@@ -407,12 +456,13 @@ akku ; les traits de pointe du préréglage pv affichent aussi leur valeur).
 | wallbox | sensor.wallbox | Borne de recharge | `#3b82f6` | — |
 | wallbox_eff | *(aucune)* | Efficacité de charge | `#6366f1` | `grid_entity` |
 | eigenverbrauch | *(aucune)* | Autoconsommation | `#84cc16` | `feedin_entity` |
-| cop | *(aucune)* | COP pompe à chaleur | `#d946ef` | `heat_entity` |
+| cop | *(aucune)* | COP pompe à chaleur | `#d946ef` | `heat_entity` ou `cop_entity` |
 | wp | sensor.waermepumpe | Pompe à chaleur | `#ef4444` | — |
 | klima | sensor.klimaanlage | Climatisation | `#06b6d4` | — |
 | akku | sensor.akku_ladezustand | État de charge batterie | `#8b5cf6` | — |
 | einspeisung | *(aucune)* | Injection réseau PV | `#ec4899` | — |
 | overview | *(aucune)* | Aperçu électricité | `#0ea5e9` | `energy_entity`, `price_per_kwh` |
+| overview_feedin | *(aucune)* | Aperçu injection | `#ec4899` | `energy_entity`, `price_per_kwh` |
 | rooms | *(aucune)* | Consommation par pièce | `#10b981` | liste `rooms` |
 
 Les entités par défaut sont des exemples ; saisissez votre propre identifiant

@@ -8,7 +8,7 @@
  * YAML:
  *   type: custom:energy-charts-by-lutarym
  *   card_type: energy      # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop |
- *                          # wp | klima | akku | einspeisung | overview | rooms
+ *                          # wp | klima | akku | einspeisung | overview | overview_feedin | rooms
  *   entity: sensor.xyz     # optional, overrides the preset default
  *   grid_entity: sensor.xyz # required for "wallbox_eff": the grid draw. May be a POWER sensor (W/kW) or an
  *                          # ENERGY sensor (kWh). Power is integrated from its recorded hourly means into
@@ -44,6 +44,9 @@
  *                             # monthly average line) below ~280px — no re-fetch needed, computed client-side
  *                             # from the same daily data. "minmax"/"mean" can also be set explicitly.
  *   color_temp: "#0ea5e9"   # optional, temperature line color (default: sky blue)
+ *   cop_source: calculated  # optional, only for "cop": calculated (heat ÷ electricity, default) | entity
+ *   cop_entity: sensor.xyz  # only with cop_source: entity — a sensor that reports the COP itself. The
+ *                           # electricity meter (entity) is then optional and weights each hour.
  *   distance_entity: sensor.auto_odometer # optional, only for "wallbox": odometer/trip sensor — draws a
  *                             # connected line (current year only) for km driven per month, on its own
  *                             # right-hand km axis. Monthly sum (like the wallbox energy sensor itself),
@@ -54,7 +57,7 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.3.0";
+const CARD_VERSION = "2.5.0";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -108,6 +111,12 @@ const I18N = {
     ovBaseFeeYear: 'Base fee (year)',
     ovBaseFeeAccrued: 'Base fee (prorated)',
     ovConsumptionLabel: 'Consumption {year}',
+    ofRevenueLabel: 'Feed-in revenue {year} so far',
+    ofFeedinLabel: 'Feed-in {year}',
+    ofPartialYearNote: 'Sensor not present since Jan 1st, feed-in since installation.',
+    editorFeedinMeter: 'Feed-in meter (kWh, required)',
+    editorFeedinPrice: 'Feed-in tariff per kWh in EUR (required)',
+    editorFeedinPriceHint: 'e.g. 0.082 for 8.2 ct/kWh (EUR per kWh).',
     ovPartialYearNote: 'Sensor not present since Jan 1st, consumption since installation.',
     ovPreviousYearLabel: 'Previous year {year} (full)',
     ovVsSamePeriod: 'vs. same period in {year}',
@@ -169,11 +178,17 @@ const I18N = {
     editorDistanceEntity: 'Distance driven entity',
     editorDistanceEntityHint: 'Optional — odometer/trip sensor, shows a line for km driven per month',
     editorGridEntity: 'Grid entity (power W/kW or energy kWh)',
-    editorGridEntityHint: 'Required — grid draw. Power is integrated to monthly import kWh. Efficiency = (1 − grid ÷ charging) × 100',
+    editorGridEntityHint: 'Required. Grid draw; power is integrated to kWh per hour. Efficiency = grid-free share of the charging, worked out hour by hour.',
     editorFeedinEntity: 'Grid feed-in entity (kWh)',
     editorFeedinEntityHint: 'Required — PV energy exported to grid. Self-consumption = (PV − feed-in) ÷ PV × 100',
     editorHeatEntity: 'Heat produced entity (kWh)',
     editorHeatEntityHint: 'Required — thermal energy produced. COP = heat ÷ electricity',
+    editorCopSource: 'COP source',
+    copSourceCalc: 'Calculate from heat and electricity',
+    copSourceEntity: 'COP entity of the heat pump',
+    editorCopEntity: 'COP entity',
+    editorCopEntityHint: 'Required. A sensor that reports the COP itself, e.g. from the heat pump.',
+    editorCopElecHint: 'Optional. Weights each hour of the COP by the electricity used, so standstill does not distort the average. Without it the plain time average applies.',
     sectionColors: 'Colors',
     colorCurrentYear: 'Current year',
     colorCurrentYearHint: 'Default for "{preset}": {color}',
@@ -246,6 +261,12 @@ const I18N = {
     ovBaseFeeYear: 'Grundgebühr (Jahr)',
     ovBaseFeeAccrued: 'Grundgebühr (anteilig)',
     ovConsumptionLabel: 'Verbrauch {year}',
+    ofRevenueLabel: 'Einspeisevergütung {year} bisher',
+    ofFeedinLabel: 'Einspeisung {year}',
+    ofPartialYearNote: 'Sensor nicht seit 1.1. vorhanden, Einspeisung ab Einbau.',
+    editorFeedinMeter: 'Einspeisezähler (kWh, Pflicht)',
+    editorFeedinPrice: 'Vergütung pro kWh in EUR (Pflicht)',
+    editorFeedinPriceHint: 'z. B. 0.082 für 8,2 ct/kWh (Euro pro kWh).',
     ovPartialYearNote: 'Sensor nicht seit 1.1. vorhanden, Verbrauch ab Einbau.',
     ovPreviousYearLabel: 'Vorjahr {year} (gesamt)',
     ovVsSamePeriod: 'ggü. gleichem Zeitraum {year}',
@@ -307,11 +328,17 @@ const I18N = {
     editorDistanceEntity: 'Kilometer-Entity',
     editorDistanceEntityHint: 'Optional — Kilometerstand-/Fahrten-Sensor, zeigt eine Linie für gefahrene km pro Monat',
     editorGridEntity: 'Netz-Entity (Leistung W/kW oder Energie kWh)',
-    editorGridEntityHint: 'Erforderlich — Netzbezug. Leistung wird zu Monats-kWh integriert. Effizienz = (1 − Netz ÷ Ladung) × 100',
+    editorGridEntityHint: 'Pflicht. Netzbezug; Leistung wird stundenweise zu kWh integriert. Effizienz = netzfreier Anteil der Ladung, Stunde für Stunde gerechnet.',
     editorFeedinEntity: 'Netz-Einspeisung-Entity (kWh)',
     editorFeedinEntityHint: 'Erforderlich — ins Netz eingespeiste PV-Energie. Eigenverbrauch = (PV − Einspeisung) ÷ PV × 100',
     editorHeatEntity: 'Wärmemengen-Entity (kWh)',
     editorHeatEntityHint: 'Erforderlich — erzeugte thermische Energie. COP = Wärme ÷ Strom',
+    editorCopSource: 'COP-Quelle',
+    copSourceCalc: 'Berechnen aus Wärme und Strom',
+    copSourceEntity: 'COP-Entität der Wärmepumpe',
+    editorCopEntity: 'COP-Entität',
+    editorCopEntityHint: 'Pflicht. Ein Sensor, der den COP selbst liefert, etwa von der Wärmepumpe.',
+    editorCopElecHint: 'Optional. Gewichtet jede Stunde des COP mit dem Stromverbrauch, damit Stillstand den Durchschnitt nicht verfälscht. Ohne Zähler gilt der einfache Zeitdurchschnitt.',
     sectionColors: 'Farben',
     colorCurrentYear: 'Aktuelles Jahr',
     colorCurrentYearHint: 'Standard für "{preset}": {color}',
@@ -384,6 +411,12 @@ const I18N = {
     ovBaseFeeYear: 'Abonnement (année)',
     ovBaseFeeAccrued: 'Abonnement (au prorata)',
     ovConsumptionLabel: 'Consommation {year}',
+    ofRevenueLabel: 'Rémunération de l\'injection {year} à ce jour',
+    ofFeedinLabel: 'Injection {year}',
+    ofPartialYearNote: 'Capteur absent depuis le 1er janvier, injection depuis l\'installation.',
+    editorFeedinMeter: 'Compteur d\'injection (kWh, requis)',
+    editorFeedinPrice: 'Tarif de rachat du kWh en EUR (requis)',
+    editorFeedinPriceHint: 'p. ex. 0.082 pour 8,2 ct/kWh (euros par kWh).',
     ovPartialYearNote: 'Capteur absent depuis le 1er janvier, consommation depuis l\'installation.',
     ovPreviousYearLabel: 'Année précédente {year} (total)',
     ovVsSamePeriod: 'par rapport à la même période en {year}',
@@ -445,11 +478,17 @@ const I18N = {
     editorDistanceEntity: 'Entité kilométrage',
     editorDistanceEntityHint: 'Facultatif — compteur kilométrique ou capteur de trajet, affiche une courbe des km parcourus par mois',
     editorGridEntity: 'Entité réseau (puissance W/kW ou énergie kWh)',
-    editorGridEntityHint: 'Requis — soutirage réseau. La puissance est intégrée en kWh mensuels. Efficacité = (1 − réseau ÷ charge) × 100',
+    editorGridEntityHint: 'Requis. Soutirage réseau ; la puissance est intégrée en kWh par heure. Efficacité = part de la charge sans réseau, calculée heure par heure.',
     editorFeedinEntity: 'Entité injection réseau (kWh)',
     editorFeedinEntityHint: 'Requis — énergie PV injectée sur le réseau. Autoconsommation = (PV − injection) ÷ PV × 100',
     editorHeatEntity: 'Entité énergie thermique produite (kWh)',
     editorHeatEntityHint: 'Requis — énergie thermique produite. COP = chaleur ÷ électricité',
+    editorCopSource: 'Source du COP',
+    copSourceCalc: 'Calculer à partir de la chaleur et de l\'électricité',
+    copSourceEntity: 'Entité COP de la pompe à chaleur',
+    editorCopEntity: 'Entité COP',
+    editorCopEntityHint: 'Requis. Un capteur qui fournit lui-même le COP, par exemple celui de la pompe à chaleur.',
+    editorCopElecHint: 'Facultatif. Pondère chaque heure du COP par l\'électricité consommée, pour que l\'arrêt ne fausse pas la moyenne. Sans compteur, c\'est la simple moyenne dans le temps.',
     sectionColors: 'Couleurs',
     colorCurrentYear: 'Année en cours',
     colorCurrentYearHint: 'Par défaut pour « {preset} » : {color}',
@@ -522,6 +561,12 @@ const I18N = {
     ovBaseFeeYear: '基本料金（年額）',
     ovBaseFeeAccrued: '基本料金（日割り）',
     ovConsumptionLabel: '{year}年の使用量',
+    ofRevenueLabel: '{year}年のこれまでの売電収入',
+    ofFeedinLabel: '{year}年の売電量',
+    ofPartialYearNote: '1月1日からのセンサーデータがないため、設置以降の売電量です。',
+    editorFeedinMeter: '売電量計（kWh、必須）',
+    editorFeedinPrice: 'kWhあたりの売電単価（EUR、必須）',
+    editorFeedinPriceHint: '例：8.2 ct/kWh なら 0.082（kWhあたりのユーロ）。',
     ovPartialYearNote: '1月1日からのセンサーデータがないため、設置以降の使用量です。',
     ovPreviousYearLabel: '前年 {year}（通年）',
     ovVsSamePeriod: '{year}年の同時期との比較',
@@ -583,11 +628,17 @@ const I18N = {
     editorDistanceEntity: '走行距離エンティティ',
     editorDistanceEntityHint: '任意。オドメーターまたは走行距離センサー。月ごとの走行距離を折れ線で表示します',
     editorGridEntity: '系統エンティティ（電力 W/kW または電力量 kWh）',
-    editorGridEntityHint: '必須。系統からの購入電力。電力は月間kWhに積算されます。効率 =（1 − 系統 ÷ 充電）× 100',
+    editorGridEntityHint: '必須。系統からの購入電力。電力は1時間ごとに kWh に積算されます。効率 = 充電のうち系統によらない割合を1時間ごとに計算したもの。',
     editorFeedinEntity: '系統への売電エンティティ（kWh）',
     editorFeedinEntityHint: '必須。系統に売電した太陽光の電力量。自家消費率 =（太陽光 − 売電）÷ 太陽光 × 100',
     editorHeatEntity: '発生熱量エンティティ（kWh）',
     editorHeatEntityHint: '必須。発生した熱エネルギー。COP = 熱量 ÷ 電力量',
+    editorCopSource: 'COPの取得方法',
+    copSourceCalc: '熱量と電力量から計算',
+    copSourceEntity: 'ヒートポンプのCOPエンティティ',
+    editorCopEntity: 'COPエンティティ',
+    editorCopEntityHint: '必須。COPそのものを出力するセンサー（たとえばヒートポンプのもの）。',
+    editorCopElecHint: '任意。COPを1時間ごとに消費電力量で重み付けし、停止中の時間が平均をゆがめないようにします。指定しない場合は単純な時間平均です。',
     sectionColors: '色',
     colorCurrentYear: '本年',
     colorCurrentYearHint: '「{preset}」の既定値：{color}',
@@ -629,6 +680,7 @@ const PRESET_I18N = {
     akku:     { label: 'Battery State of Charge', title: 'Battery State of Charge', entityDesc: 'Battery charge sensor (%)' },
     einspeisung: { label: 'Grid Feed-in', title: 'Grid Feed-in', entityDesc: 'Grid feed-in meter (kWh)' },
     overview: { label: 'Electricity Overview', title: 'Electricity Overview' },
+    overview_feedin: { label: 'Feed-in Overview', title: 'Feed-in Overview' },
     rooms: { label: 'Room Energy', title: 'Room Energy Consumption' },
   },
   de: {
@@ -644,6 +696,7 @@ const PRESET_I18N = {
     akku:     { label: 'Akku-Ladezustand', title: 'Akku-Ladezustand', entityDesc: 'Akku-Ladezustand-Sensor (%)' },
     einspeisung: { label: 'Netzeinspeisung', title: 'PV Netz-Einspeisung', entityDesc: 'Netzeinspeisung-Zähler (kWh)' },
     overview: { label: 'Stromübersicht', title: 'Stromübersicht' },
+    overview_feedin: { label: 'Einspeiseübersicht', title: 'Einspeiseübersicht' },
     rooms: { label: 'Raum-Energie', title: 'Stromverbrauch Räume' },
   },
   fr: {
@@ -659,6 +712,7 @@ const PRESET_I18N = {
     akku:     { label: 'État de charge batterie', title: 'État de charge batterie', entityDesc: 'Capteur d\'état de charge (%)' },
     einspeisung: { label: 'Injection réseau', title: 'Injection réseau PV', entityDesc: 'Compteur d\'injection réseau (kWh)' },
     overview: { label: 'Aperçu électricité', title: 'Aperçu électricité' },
+    overview_feedin: { label: 'Aperçu injection', title: 'Aperçu injection' },
     rooms: { label: 'Énergie par pièce', title: 'Consommation par pièce' },
   },
   ja: {
@@ -674,6 +728,7 @@ const PRESET_I18N = {
     akku:     { label: '蓄電池の充電状態', title: '蓄電池の充電状態', entityDesc: '充電状態センサー（%）' },
     einspeisung: { label: '系統への売電', title: '太陽光の売電', entityDesc: '売電量計（kWh）' },
     overview: { label: '電力概要', title: '電力概要' },
+    overview_feedin: { label: '売電の概要', title: '売電の概要' },
     rooms: { label: '部屋別エネルギー', title: '部屋別の電力使用量' },
   },
 };
@@ -1231,6 +1286,16 @@ const PRESETS = {
     entity: '',
     color: '#0ea5e9',
   },
+  // Dieselbe Uebersicht fuer die Einspeiserichtung: gleiche Abfrage, gleiche
+  // Rechnung und gleicher Vorjahresvergleich. Aus Kosten werden Einnahmen,
+  // und mehr kWh sind hier das bessere Ergebnis. Eine Grundgebuehr gibt es
+  // bei der Einspeiseverguetung nicht.
+  overview_feedin: {
+    mode: 'overview',
+    direction: 'feedin',
+    entity: '',
+    color: '#ec4899',
+  },
   // Not a bar preset: per-room yearly kWh with % share of the house total,
   // ported from lutarym-room-energy-card. Own render + editor path.
   rooms: {
@@ -1327,15 +1392,17 @@ class EnergyChartsByLutarym extends HTMLElement {
         || this._config.card_type !== cardType
         || this._config.energy_entity !== (config.energy_entity || config.entity || '')
         || this._config.previous_year_kwh !== lutarymNum(config.previous_year_kwh);
+      const feedin = preset.direction === 'feedin';
       this._config = {
         card_type: cardType,
+        direction: feedin ? 'feedin' : 'consumption',
         energy_entity: config.energy_entity || config.entity || '',
         entity: config.energy_entity || config.entity || '', // so notConfigured checks pass
         // Zahlen einmal hier einlesen (auch "0,32"), danach sind es Zahlen
         // oder null.
         price_per_kwh: lutarymNum(config.price_per_kwh),
-        base_fee_yearly: lutarymNum(config.base_fee_yearly),
-        base_fee_monthly: lutarymNum(config.base_fee_monthly),
+        base_fee_yearly: feedin ? null : lutarymNum(config.base_fee_yearly),
+        base_fee_monthly: feedin ? null : lutarymNum(config.base_fee_monthly),
         base_fee_mode: config.base_fee_mode || 'accrued',
         currency: config.currency || 'EUR',
         previous_year_kwh: lutarymNum(config.previous_year_kwh),
@@ -1426,8 +1493,14 @@ class EnergyChartsByLutarym extends HTMLElement {
     // so it's fetched the same way ('change'/sum per month), only meaningful
     // for supportsDistanceLine presets.
     const newDistanceEntity = (preset.supportsDistanceLine && config.distance_entity) ? config.distance_entity : '';
-    // Numerator entity for ratio presets (wallbox_eff): kWh charged grid-free.
-    const newGridfreeEntity = (preset.isRatio && preset.secondKey && config[preset.secondKey])
+    // COP: aus Waerme und Strom berechnen (Standard) oder die COP-Entitaet
+    // der Waermepumpe verwenden. Im zweiten Fall bleibt die Waermeseite
+    // aussen vor, und der Stromzaehler ist nur noch optional.
+    const copMode = (preset.ratioMode === 'quotient_monthly' && config.cop_source === 'entity')
+      ? 'entity' : 'calculated';
+    const newCopEntity = copMode === 'entity' ? (config.cop_entity || '') : '';
+    // Zweite Entity der Verhaeltnis-Presets (Netz, Einspeisung, Waerme).
+    const newGridfreeEntity = (copMode !== 'entity' && preset.isRatio && preset.secondKey && config[preset.secondKey])
       ? config[preset.secondKey] : '';
     const entityOrTypeChanged =
       !this._config ||
@@ -1439,6 +1512,8 @@ class EnergyChartsByLutarym extends HTMLElement {
       this._config.distanceEntity !== newDistanceEntity ||
       this._config.gridEntity !== newGridfreeEntity ||
       this._config.heatEntity2 !== (config.heat_entity2 || '') ||
+      this._config.copMode !== copMode ||
+      this._config.copEntity !== newCopEntity ||
       this._config.yearsBack !== newYearsBack ||
       this._config.statMode !== newStatMode;
 
@@ -1457,6 +1532,8 @@ class EnergyChartsByLutarym extends HTMLElement {
       gridEntity: newGridfreeEntity, // grid entity (energy kWh or power W) for wallbox_eff
       gridImportNegative: config.grid_import_negative === true, // some meters sign import negative
       heatEntity2: config.heat_entity2 || '', // optional 2nd thermal source for COP (heating + DHW)
+      copMode,                  // 'calculated' | 'entity'
+      copEntity: newCopEntity,  // COP-Sensor der Waermepumpe (nur bei copMode 'entity')
       title:      config.title      ?? info.title,
       // Farbwerte einmal hier pruefen, danach sind sie ueberall im Markup
       // gefahrlos. Ein ungueltiger Wert faellt auf den Preset-Standard
@@ -1502,9 +1579,9 @@ class EnergyChartsByLutarym extends HTMLElement {
       this._seriesYears = [];
       this._seriesData  = [];
       this._ratioTotals = [];
-      const ratioReady = !this._preset.isRatio || !!this._config.gridEntity;
-      this._loading   = !!this._config.entity && ratioReady;
-      if (this._hass && this._config.entity && ratioReady) this._fetchData();
+      const ready = this._dataReady();
+      this._loading = ready;
+      if (this._hass && ready) this._fetchData();
     }
 
     this._render();
@@ -1540,8 +1617,7 @@ class EnergyChartsByLutarym extends HTMLElement {
       }
       return;
     }
-    const ratioReady = !this._preset?.isRatio || !!this._config?.gridEntity;
-    if (this._config?.entity && ratioReady && Date.now() - this._lastFetch > 3_600_000) {
+    if (this._config && this._dataReady() && Date.now() - this._lastFetch > 3_600_000) {
       this._fetchData();
     }
   }
@@ -1560,6 +1636,29 @@ class EnergyChartsByLutarym extends HTMLElement {
   // "min/max range per month" view instead of a single value per month.
   _isRangeMode() {
     return !!(this._preset?.supportsRange && this._config?.statMode === 'minmax');
+  }
+
+  // Was fehlt noch, bevor die Karte abrufen kann? Liefert den Hinweistext
+  // oder null. Die COP-Entitaet braucht keinen Stromzaehler, alle anderen
+  // Balken-Presets ihre Haupt-Entity und die Verhaeltnis-Presets zusaetzlich
+  // ihre zweite Entity.
+  _missingText(hass) {
+    const c = this._config || {};
+    const p = this._preset || {};
+    if (c.copMode === 'entity') {
+      return c.copEntity ? null : t(hass, 'notConfiguredRatio', { field: t(hass, 'editorCopEntity') });
+    }
+    if (!c.entity) return t(hass, 'notConfigured');
+    if (p.isRatio && !c.gridEntity) {
+      const key = { grid_entity: 'editorGridEntity', feedin_entity: 'editorFeedinEntity',
+                    heat_entity: 'editorHeatEntity' }[p.secondKey];
+      return t(hass, 'notConfiguredRatio', { field: key ? t(hass, key) : t(hass, 'editorEntity') });
+    }
+    return null;
+  }
+
+  _dataReady() {
+    return !!this._config && !this._missingText(this._hass);
   }
 
   // ── Statistikabruf ────────────────────────────────────────────────────
@@ -1640,16 +1739,17 @@ class EnergyChartsByLutarym extends HTMLElement {
   //                  Einheit der Sensor hat) mal eine Stunde.
   // Stunden ohne Statistik fehlen in der Map - fehlend heisst unbekannt,
   // nicht null.
+  //   kind 'mean':   Stundenmittel ohne Umrechnung (etwa ein COP-Sensor).
   async _fetchHourly(entity, year, kind, importOnly = false) {
-    const req = kind === 'power'
-      ? this._statsRequest(entity, year, 'hour', ['mean'], { power: 'kW' })
+    const req = kind === 'power' ? this._statsRequest(entity, year, 'hour', ['mean'], { power: 'kW' })
+      : kind === 'mean' ? this._statsRequest(entity, year, 'hour', ['mean'])
       : this._statsRequest(entity, year, 'hour', ['change'], { energy: 'kWh' });
     const res = await this._hass.callWS(req);
     const b = lutarymMonthBounds(lutarymServerTz(this._hass), year);
     const sign = importOnly && this._config.gridImportNegative ? -1 : 1;
     const map = new Map();
     for (const r of res?.[entity] ?? []) {
-      const v = Number(kind === 'power' ? r.mean : r.change);
+      const v = Number(kind === 'energy' ? r.change : r.mean);
       if (!Number.isFinite(v)) continue;
       const ms = lutarymRowMs(r);
       if (lutarymMonthOf(b, ms) < 0) continue;
@@ -2060,6 +2160,7 @@ class EnergyChartsByLutarym extends HTMLElement {
   async _fetchSeries(years) {
     const cfg = this._config;
     const preset = this._preset;
+    if (cfg.copMode === 'entity') return this._fetchCopFromEntity(years);
     const ratioMode = preset.isRatio && cfg.gridEntity ? preset.ratioMode : null;
 
     if (ratioMode === 'marginal_hourly') {
@@ -2155,6 +2256,68 @@ class EnergyChartsByLutarym extends HTMLElement {
       return { series, totals };
     }
     return { series: base, totals: years.map(() => null) };
+  }
+
+  // COP aus einer Entitaet der Waermepumpe.
+  // Ein COP-Sensor ist ein Augenblickswert. Sein einfacher Zeitdurchschnitt
+  // ist nicht die Jahresarbeitszahl, denn Stillstand zaehlt mit: zeigt der
+  // Sensor dann 0, drueckt jede Stunde Stillstand den Monat nach unten,
+  // haelt er den letzten Wert, zaehlt eine laufende Stunde mit hohem
+  // Verbrauch nicht mehr als eine Stunde Stillstand.
+  // Ist der Stromzaehler der Waermepumpe gesetzt, zaehlt deshalb jede
+  // Stunde mit ihrem Stromverbrauch:
+  //   COP_Monat = Sigma (COP_h * Strom_h) / Sigma Strom_h
+  // Ist der COP innerhalb der Stunde gleich, ist das genau
+  // Sigma Waerme / Sigma Strom, also dieselbe Groesse wie im Rechenmodus.
+  // Stunden ohne COP-Wert fallen heraus. Ohne Stromzaehler bleibt der
+  // Zeitdurchschnitt, wie HA ihn bildet, im Jahr zeitgewichtet.
+  async _fetchCopFromEntity(years) {
+    const cfg = this._config;
+    const tz = lutarymServerTz(this._hass);
+    if (cfg.entity) {
+      const elecKind = this._entityIsPower(cfg.entity) ? 'power' : 'energy';
+      const totals = [];
+      const series = await Promise.all(years.map(async (y, yi) => {
+        const [cop, elec] = await Promise.all([
+          this._fetchHourly(cfg.copEntity, y, 'mean'),
+          this._fetchHourly(cfg.entity, y, elecKind),
+        ]);
+        const b = lutarymMonthBounds(tz, y);
+        const num = new Array(12).fill(0);
+        const den = new Array(12).fill(0);
+        let numYear = 0, denYear = 0;
+        for (const [ms, e] of elec) {
+          if (!(e > 0)) continue;
+          const c = cop.get(ms);
+          if (c === undefined) continue;
+          const m = lutarymMonthOf(b, ms);
+          num[m] += c * e;
+          den[m] += e;
+          numYear += c * e;
+          denYear += e;
+        }
+        totals[yi] = { num: numYear, den: denYear };
+        return num.map((n, m) => den[m] > 0 ? n / den[m] : null);
+      }));
+      return { series, totals };
+    }
+    const series = await Promise.all(years.map(async y => {
+      const res = await this._hass.callWS(this._statsRequest(cfg.copEntity, y, 'month', ['mean']));
+      return this._byMonth(res?.[cfg.copEntity], y, e => e.mean ?? null);
+    }));
+    const now = Date.now();
+    const totals = series.map((months, yi) => {
+      const b = lutarymMonthBounds(tz, years[yi]);
+      let num = 0, den = 0;
+      months.forEach((v, m) => {
+        if (v == null) return;
+        const w = Math.max(0, Math.min(b[m + 1], now) - b[m]);
+        num += v * w;
+        den += w;
+      });
+      return { num, den };
+    });
+    return { series, totals };
   }
 
   // ── Helpers ───────────────────────────────────────────────────────
@@ -2336,7 +2499,11 @@ class EnergyChartsByLutarym extends HTMLElement {
     // ohne Escaping zerlegt ein "&" oder "<" im Titel die Karte.
     const currency = lutarymEsc(cfg.currency || 'EUR');
     const year = data?.year ?? lutarymWall(Date.now(), lutarymServerTz(hass)).y;
-    const titleText = lutarymEsc(cfg.title || t(hass, 'ovDefaultTitle'));
+    // Einspeiserichtung: gleiche Werte, andere Beschriftung, und beim
+    // Vorjahresvergleich ist mehr gut statt schlecht.
+    const feedin = cfg.direction === 'feedin';
+    const titleText = lutarymEsc(cfg.title
+      || (feedin ? presetInfo(hass, cfg.card_type).title : t(hass, 'ovDefaultTitle')));
 
     let inner;
     if (!cfg.energy_entity) {
@@ -2376,20 +2543,22 @@ class EnergyChartsByLutarym extends HTMLElement {
         const diff = currentCmp - previousYtd;
         const pct  = (diff / previousYtd) * 100;
         const less = diff < 0;
-        compareHtml = `<div class="ov-compare ${less ? 'down' : 'up'}">${less ? '▼' : '▲'} ${this._ovFmt(Math.abs(pct),1)} % ${less ? t(hass,'ovLess') : t(hass,'ovMore')} (${this._ovFmt(Math.abs(diff),0,1)} kWh) <span class="ov-cmpnote">${t(hass,'ovVsSamePeriod',{ year: year-1 })}</span></div>`;
+        const good = feedin ? !less : less;
+        compareHtml = `<div class="ov-compare ${good ? 'good' : 'bad'}">${less ? '▼' : '▲'} ${this._ovFmt(Math.abs(pct),1)} % ${less ? t(hass,'ovLess') : t(hass,'ovMore')} (${this._ovFmt(Math.abs(diff),0,1)} kWh) <span class="ov-cmpnote">${t(hass,'ovVsSamePeriod',{ year: year-1 })}</span></div>`;
       } else {
         compareHtml = `<div class="ov-compare">${t(hass,'ovNoDataForYear',{ year: year-1 })}</div>`;
       }
       const prevText = (previous !== null && previous > 0) ? `${this._ovFmt(previous,0,1)} kWh` : '–';
 
-      const noteHtml = data.partialYear ? `<div class="ov-note">${t(hass,'ovPartialYearNote')}</div>` : '';
+      const noteHtml = data.partialYear
+        ? `<div class="ov-note">${t(hass, feedin ? 'ofPartialYearNote' : 'ovPartialYearNote')}</div>` : '';
       inner = `
         <div class="ov-hero">${this._ovFmt(totalCost,2)} ${currency}</div>
-        <div class="ov-sub">${t(hass,'ovCostLabel',{ year })}</div>
+        <div class="ov-sub">${t(hass, feedin ? 'ofRevenueLabel' : 'ovCostLabel', { year })}</div>
         <div class="ov-breakdown">${rows.join('')}</div>
         <div class="ov-divider"></div>
         <div class="ov-cons">
-          <div><div class="ov-collabel">${t(hass,'ovConsumptionLabel',{ year })}</div><div class="ov-consval">${this._ovFmt(current,0,1)} kWh</div></div>
+          <div><div class="ov-collabel">${t(hass, feedin ? 'ofFeedinLabel' : 'ovConsumptionLabel', { year })}</div><div class="ov-consval">${this._ovFmt(current,0,1)} kWh</div></div>
           <div class="ov-right"><div class="ov-collabel">${t(hass,'ovPreviousYearLabel',{ year: year-1 })}</div><div class="ov-consval sec">${prevText}</div></div>
         </div>
         ${compareHtml}
@@ -2419,8 +2588,8 @@ class EnergyChartsByLutarym extends HTMLElement {
         .ov-consval { font-size:1.55rem; font-weight:600; color:var(--primary-text-color); font-variant-numeric:tabular-nums; line-height:1.1; }
         .ov-consval.sec { font-size:1.05rem; font-weight:500; color:var(--secondary-text-color); }
         .ov-compare { margin-top:8px; font-size:.9rem; font-weight:600; font-variant-numeric:tabular-nums; color:var(--secondary-text-color); }
-        .ov-compare.down { color:var(--success-color, #2e7d32); }
-        .ov-compare.up { color:var(--error-color, #c62828); }
+        .ov-compare.good { color:var(--success-color, #2e7d32); }
+        .ov-compare.bad { color:var(--error-color, #c62828); }
         .ov-cmpnote { font-weight:400; font-size:.78rem; color:var(--secondary-text-color); }
         .ov-note { font-size:.75rem; color:var(--secondary-text-color); margin-top:6px; font-style:italic; }
       </style>
@@ -3155,14 +3324,10 @@ class EnergyChartsByLutarym extends HTMLElement {
     const lastIndex    = years.length - 1;
     const px           = this._width || 0;
 
-    const ratioMissingNumerator = this._preset?.isRatio && !this._config.gridEntity;
+    const missing = this._missingText(hass);
     let body;
-    if (!this._config.entity) {
-      body = `<div class="loading">${t(hass, 'notConfigured')}</div>`;
-    } else if (ratioMissingNumerator) {
-      const secondLabelKey = { grid_entity: 'editorGridEntity', feedin_entity: 'editorFeedinEntity', heat_entity: 'editorHeatEntity' }[this._preset.secondKey];
-      const fieldName = secondLabelKey ? t(hass, secondLabelKey) : t(hass, 'editorEntity');
-      body = `<div class="loading">${t(hass, 'notConfiguredRatio', { field: fieldName })}</div>`;
+    if (missing) {
+      body = `<div class="loading">${missing}</div>`;
     } else if (this._loading) {
       body = `<div class="loading">${t(hass, 'loading')}</div>`;
     } else if (this._error) {
@@ -3443,6 +3608,8 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
     delete preserved.feedin_entity;
     delete preserved.heat_entity;
     delete preserved.heat_entity2;
+    delete preserved.cop_source;
+    delete preserved.cop_entity;
     delete preserved.color_temp;
     delete preserved.total_entity;
     delete preserved.pv_entity;
@@ -3685,6 +3852,11 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
         const newVal = ev.target.value;
         if (field === 'card_type') {
           this._onTypeChange(newVal);
+        } else if (field === 'cop_source') {
+          // Standard nicht ins YAML schreiben; neu aufbauen, weil die
+          // Felder darunter von der Quelle abhaengen.
+          this._onFieldChange(field, newVal === 'calculated' ? null : newVal);
+          this._render();
         } else {
           this._onFieldChange(field, newVal);
         }
@@ -3985,8 +4157,9 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
 
     // Overview mode has its own small set of fields; render them and stop.
     if (preset.mode === 'overview') {
+      const feedin = preset.direction === 'feedin';
       form.appendChild(this._row(
-        t(hass, 'editorEnergyEntity'), null, { entity: {} },
+        t(hass, feedin ? 'editorFeedinMeter' : 'editorEnergyEntity'), null, { entity: {} },
         'energy_entity', this._config.energy_entity,
       ));
       form.appendChild(this._row(
@@ -3995,23 +4168,28 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
         { text: {} }, 'title', this._config.title,
       ));
       form.appendChild(this._numberRow(
-        t(hass, 'editorPrice'), t(hass, 'editorPriceHint'),
-        'price_per_kwh', this._config.price_per_kwh, 0, null, false, '0.32', 0.01, '',
+        t(hass, feedin ? 'editorFeedinPrice' : 'editorPrice'),
+        t(hass, feedin ? 'editorFeedinPriceHint' : 'editorPriceHint'),
+        'price_per_kwh', this._config.price_per_kwh, 0, null, false,
+        feedin ? '0.082' : '0.32', feedin ? 0.0001 : 0.01, '',
       ));
-      form.appendChild(this._sideBySide(
-        this._numberRow(t(hass, 'editorBaseFeeYearly'), null, 'base_fee_yearly',
-          this._config.base_fee_yearly, 0, null, false, t(hass, 'phBaseFeeYearly'), 0.01, ''),
-        this._numberRow(t(hass, 'editorBaseFeeMonthly'), null, 'base_fee_monthly',
-          this._config.base_fee_monthly, 0, null, false, t(hass, 'phBaseFeeMonthly'), 0.01, ''),
-      ));
-      form.appendChild(this._row(
-        t(hass, 'editorBaseFeeMode'), null,
-        { select: { mode: 'dropdown', options: [
-          { value: 'accrued', label: t(hass, 'ovModeAccrued') },
-          { value: 'full',    label: t(hass, 'ovModeFull') },
-        ] } },
-        'base_fee_mode', this._config.base_fee_mode || 'accrued',
-      ));
+      // Grundgebuehr nur in Bezugsrichtung
+      if (!feedin) {
+        form.appendChild(this._sideBySide(
+          this._numberRow(t(hass, 'editorBaseFeeYearly'), null, 'base_fee_yearly',
+            this._config.base_fee_yearly, 0, null, false, t(hass, 'phBaseFeeYearly'), 0.01, ''),
+          this._numberRow(t(hass, 'editorBaseFeeMonthly'), null, 'base_fee_monthly',
+            this._config.base_fee_monthly, 0, null, false, t(hass, 'phBaseFeeMonthly'), 0.01, ''),
+        ));
+        form.appendChild(this._row(
+          t(hass, 'editorBaseFeeMode'), null,
+          { select: { mode: 'dropdown', options: [
+            { value: 'accrued', label: t(hass, 'ovModeAccrued') },
+            { value: 'full',    label: t(hass, 'ovModeFull') },
+          ] } },
+          'base_fee_mode', this._config.base_fee_mode || 'accrued',
+        ));
+      }
       form.appendChild(this._row(
         t(hass, 'editorCurrency'), null, { text: {} },
         'currency', this._config.currency || 'EUR',
@@ -4028,11 +4206,33 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
       return;
     }
 
+    // COP: Quelle waehlen. Bei der COP-Entitaet ist der Stromzaehler nur
+    // noch optional (zur Gewichtung), die Waermemenge entfaellt.
+    const isCop = preset.ratioMode === 'quotient_monthly';
+    const copEntityMode = isCop && this._config.cop_source === 'entity';
+    if (isCop) {
+      form.appendChild(this._row(
+        t(hass, 'editorCopSource'), null,
+        { select: { mode: 'dropdown', options: [
+          { value: 'calculated', label: t(hass, 'copSourceCalc') },
+          { value: 'entity',     label: t(hass, 'copSourceEntity') },
+        ] } },
+        'cop_source', copEntityMode ? 'entity' : 'calculated',
+      ));
+      if (copEntityMode) {
+        form.appendChild(this._row(
+          t(hass, 'editorCopEntity'), t(hass, 'editorCopEntityHint'), { entity: {} },
+          'cop_entity', this._config.cop_entity,
+        ));
+      }
+    }
+
     form.appendChild(this._row(
       info.entityDesc || t(hass, 'editorEntity'),
-      preset.entity
-        ? t(hass, 'editorEntityHint', { preset: info.label, entity: preset.entity })
-        : t(hass, 'editorEntityRequiredHint'),
+      copEntityMode ? t(hass, 'editorCopElecHint')
+        : preset.entity
+          ? t(hass, 'editorEntityHint', { preset: info.label, entity: preset.entity })
+          : t(hass, 'editorEntityRequiredHint'),
       { entity: {} },
       'entity',
       this._config.entity,
@@ -4127,7 +4327,7 @@ class EnergyChartsByLutarymEditor extends HTMLElement {
       ));
     }
 
-    if (preset.isRatio && preset.secondKey) {
+    if (preset.isRatio && preset.secondKey && !copEntityMode) {
       const lblKey = preset.secondKey === 'feedin_entity' ? 'editorFeedinEntity'
                    : preset.secondKey === 'heat_entity'   ? 'editorHeatEntity'
                    : 'editorGridEntity';
@@ -4262,7 +4462,7 @@ window.customCards.push({
   type: 'energy-charts-by-lutarym',
   name: 'Energy-Charts-by-Lutarym',
   description:
-    'Monthly energy charts with 13 presets: self-sufficiency, consumption, PV, wallbox, heat pump COP, battery, cost overview and per-room energy.',
+    'Monthly energy charts and overviews: self-sufficiency, consumption, PV, feed-in, wallbox, heat pump COP, battery, cost and feed-in overview, per-room energy.',
   preview: true,
   documentationURL: 'https://github.com/Lutarym/Energy-Charts-by-Lutarym',
 });

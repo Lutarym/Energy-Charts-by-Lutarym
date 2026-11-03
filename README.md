@@ -2,20 +2,20 @@
 
 **English** · [Deutsch](README.de.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.3.0 · [Changelog](CHANGELOG.md)
+Version 2.5.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card for Home Assistant. A single card whose behaviour is
 chosen via `card_type` in a visual configuration form. Most types draw
 monthly bar charts (current year vs. up to 3 previous years); a few draw a
-computed ratio (efficiency, self-consumption, COP), and two render a
-text/number summary instead of bars (electricity overview, per-room
-energy). The card and its editor speak four languages, English, German,
+computed ratio (efficiency, self-consumption, COP), and three render a
+text/number summary instead of bars (electricity overview, feed-in
+overview, per-room energy). The card and its editor speak four languages, English, German,
 French and Japanese, following `hass.language` automatically; any other
 language setting falls back to English.
 
 ## Card types
 
-There are 13 `card_type` presets. Each screenshot below shows the preset
+There are 14 `card_type` presets. Each screenshot below shows the preset
 with its default styling; every colour, title and entity can be overridden
 in the editor.
 
@@ -99,14 +99,34 @@ metered, so a plain monthly ratio is exact.
 ![Heat Pump COP](Image/WaermepumpeCOP.png)
 
 Heat produced per unit of electricity. Auto-scaled axis; the value is a
-number (typically ~2–5), not a percentage, shown with 2 decimals.
-Requires two entities:
+number (typically ~2–5), not a percentage, shown with 2 decimals. There are
+two ways to get it, chosen with `cop_source`.
+
+**Calculated** (`cop_source: calculated`, the default):
 
 - `entity`: electrical energy consumed (kWh).
 - `heat_entity`: thermal energy produced (kWh, e.g. from HeishaMon).
 
 Monthly value = heat ÷ electricity. Needs a real thermal-energy sensor to
-be meaningful.
+be meaningful. The yearly value is the seasonal performance factor
+Σ heat ÷ Σ electricity, not the average of the twelve monthly COPs.
+
+**From a COP entity of the heat pump** (`cop_source: entity`):
+
+- `cop_entity`: a sensor that reports the COP itself. **Required.**
+- `entity`: electricity meter of the heat pump (kWh). Optional, but
+  recommended.
+
+A COP sensor is a momentary value, and its plain time average is not the
+seasonal performance factor, because standstill counts as well. With the
+electricity meter set, every hour is weighted by the electricity used:
+Σ (COP × electricity) ÷ Σ electricity, per month and per year. If the COP
+is constant within an hour, that is exactly Σ heat ÷ Σ electricity, the
+same figure as the calculated mode. Hours without a COP value are left
+out. Without the electricity meter the card shows the time average of the
+COP sensor, weighted by time over the year. If the sensor reads 0 while
+the heat pump stands still, the calculated mode is the more accurate one:
+within an hour the card only sees the average.
 
 ### wp — Heat Pump
 
@@ -185,6 +205,23 @@ so a fresh meter does not show an increase that never happened. A
 full-year comparison would be dominated by the calendar: in September it
 would always read as a large decrease, whatever the actual consumption
 did.
+
+### overview_feedin — Feed-in Overview
+
+The same overview for the feed-in direction: the same query, the same
+calculation and the same previous-year comparison as `overview`, applied
+to the feed-in meter. Cost becomes revenue, the feed-in tariff times the
+kWh fed in this year so far. In the comparison more feed-in is the better
+result, so an increase is shown in green and a decrease in red. There is
+no base fee for the feed-in tariff, so those fields are not offered.
+Configuration:
+
+- `energy_entity`: feed-in meter (kWh). **Required.**
+- `price_per_kwh`: feed-in tariff per kWh in EUR (e.g. `0.082` for
+  8.2 ct/kWh). **Required.**
+- `currency`: default `EUR`.
+- `previous_year_kwh`: optional manual override for the previous-year
+  feed-in; setting it disables the same-period comparison.
 
 ### rooms — Room Energy Consumption
 
@@ -303,7 +340,7 @@ browser. Numbers follow the number format in your Home Assistant profile.
 
 ```yaml
 type: custom:energy-charts-by-lutarym
-card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | rooms
+card_type: pv            # autarkie | energy | pv | wallbox | wallbox_eff | eigenverbrauch | cop | wp | klima | akku | einspeisung | overview | overview_feedin | rooms
 years_back: 2             # optional: 0 | 1 | 2 | 3 additional previous years (default: 1); bar presets only
 show_values: true         # optional: the number above each bar (not the axis scale), default: true; bar presets
 show_legend: false        # optional: small year swatches inside the chart, default: false
@@ -334,6 +371,9 @@ feedin_entity: sensor.pv_feedin  # required: grid feed-in (kWh)
 
 # --- cop only ---
 heat_entity: sensor.heat_produced # required: thermal energy produced (kWh)
+# or take the COP from the heat pump itself:
+# cop_source: entity              # calculated (default) | entity
+# cop_entity: sensor.wp_cop       # required with cop_source: entity
 
 # --- overview only ---
 energy_entity: sensor.stromverbrauch # required
@@ -342,6 +382,12 @@ base_fee_yearly: 120      # or base_fee_monthly: 10
 base_fee_mode: accrued    # accrued (prorated) | full
 currency: EUR
 previous_year_kwh: 4200   # optional manual override
+
+# --- overview_feedin only ---
+energy_entity: sensor.einspeisung # required: feed-in meter (kWh)
+price_per_kwh: 0.082      # required (feed-in tariff, EUR per kWh)
+currency: EUR
+previous_year_kwh: 3900   # optional manual override
 
 # --- rooms only ---
 total_entity: sensor.grid_import  # optional
@@ -380,12 +426,13 @@ ticks on the pv preset show their own value too).
 | wallbox | sensor.wallbox | Wallbox | `#3b82f6` | — |
 | wallbox_eff | *(none)* | Wallbox Charging Efficiency | `#6366f1` | `grid_entity` |
 | eigenverbrauch | *(none)* | Self-Consumption | `#84cc16` | `feedin_entity` |
-| cop | *(none)* | Heat Pump COP | `#d946ef` | `heat_entity` |
+| cop | *(none)* | Heat Pump COP | `#d946ef` | `heat_entity` or `cop_entity` |
 | wp | sensor.waermepumpe | Heat Pump | `#ef4444` | — |
 | klima | sensor.klimaanlage | Air Conditioning | `#06b6d4` | — |
 | akku | sensor.akku_ladezustand | Battery State of Charge | `#8b5cf6` | — |
 | einspeisung | *(none)* | Grid Feed-in | `#ec4899` | — |
 | overview | *(none)* | Electricity Overview | `#0ea5e9` | `energy_entity`, `price_per_kwh` |
+| overview_feedin | *(none)* | Feed-in Overview | `#ec4899` | `energy_entity`, `price_per_kwh` |
 | rooms | *(none)* | Room Energy Consumption | `#10b981` | `rooms` list |
 
 The default entities are placeholders; enter your actual entity ID in the
