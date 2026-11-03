@@ -2,7 +2,7 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Français** · [日本語](README.ja.md)
 
-Version 2.5.0 · [Changelog](CHANGELOG.md)
+Version 2.6.0 · [Changelog](CHANGELOG.md)
 
 Carte Lovelace personnalisée pour Home Assistant. Une seule carte dont le
 comportement se choisit avec `card_type` dans un formulaire de configuration
@@ -232,7 +232,8 @@ l'évolution réelle de la consommation.
 Le même aperçu pour le sens de l'injection : même requête, même calcul et
 même comparaison avec l'année précédente que `overview`, appliqués au
 compteur d'injection. Le coût devient une recette, le tarif de rachat
-multiplié par les kWh injectés depuis le début de l'année. Dans la
+multiplié par les kWh injectés depuis le début de l'année. En dessous figure
+le versement mensuel : la rémunération à ce jour divisée par 12. Dans la
 comparaison, davantage d'injection est le meilleur résultat : une hausse
 s'affiche donc en vert et une baisse en rouge. La rémunération de
 l'injection n'a pas d'abonnement, ces champs ne sont donc pas proposés.

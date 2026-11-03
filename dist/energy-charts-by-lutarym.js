@@ -57,7 +57,7 @@
  * plus optional overrides can be chosen conveniently in the visual editor.
  */
 
-const CARD_VERSION = "2.5.0";
+const CARD_VERSION = "2.6.0";
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -113,6 +113,7 @@ const I18N = {
     ovConsumptionLabel: 'Consumption {year}',
     ofRevenueLabel: 'Feed-in revenue {year} so far',
     ofFeedinLabel: 'Feed-in {year}',
+    ofMonthlyLabel: 'Monthly payment (total ÷ 12)',
     ofPartialYearNote: 'Sensor not present since Jan 1st, feed-in since installation.',
     editorFeedinMeter: 'Feed-in meter (kWh, required)',
     editorFeedinPrice: 'Feed-in tariff per kWh in EUR (required)',
@@ -263,6 +264,7 @@ const I18N = {
     ovConsumptionLabel: 'Verbrauch {year}',
     ofRevenueLabel: 'Einspeisevergütung {year} bisher',
     ofFeedinLabel: 'Einspeisung {year}',
+    ofMonthlyLabel: 'Monatliche Einzahlung (Gesamt ÷ 12)',
     ofPartialYearNote: 'Sensor nicht seit 1.1. vorhanden, Einspeisung ab Einbau.',
     editorFeedinMeter: 'Einspeisezähler (kWh, Pflicht)',
     editorFeedinPrice: 'Vergütung pro kWh in EUR (Pflicht)',
@@ -413,6 +415,7 @@ const I18N = {
     ovConsumptionLabel: 'Consommation {year}',
     ofRevenueLabel: 'Rémunération de l\'injection {year} à ce jour',
     ofFeedinLabel: 'Injection {year}',
+    ofMonthlyLabel: 'Versement mensuel (total ÷ 12)',
     ofPartialYearNote: 'Capteur absent depuis le 1er janvier, injection depuis l\'installation.',
     editorFeedinMeter: 'Compteur d\'injection (kWh, requis)',
     editorFeedinPrice: 'Tarif de rachat du kWh en EUR (requis)',
@@ -563,6 +566,7 @@ const I18N = {
     ovConsumptionLabel: '{year}年の使用量',
     ofRevenueLabel: '{year}年のこれまでの売電収入',
     ofFeedinLabel: '{year}年の売電量',
+    ofMonthlyLabel: '月々の入金額（合計 ÷ 12）',
     ofPartialYearNote: '1月1日からのセンサーデータがないため、設置以降の売電量です。',
     editorFeedinMeter: '売電量計（kWh、必須）',
     editorFeedinPrice: 'kWhあたりの売電単価（EUR、必須）',
@@ -2529,6 +2533,11 @@ class EnergyChartsByLutarym extends HTMLElement {
 
       const rows = [];
       rows.push(`<div class="ov-row"><span>${t(hass, 'ovEnergyLabel', { kwh: this._ovFmt(current,0,1), price: this._ovFmt(price,2,4), currency })}</span><span>${this._ovFmt(energyCost,2)} ${currency}</span></div>`);
+      // Einspeiserichtung: monatliche Einzahlung = Verguetung des laufenden
+      // Jahres bisher geteilt durch 12.
+      if (feedin) {
+        rows.push(`<div class="ov-row"><span>${t(hass, 'ofMonthlyLabel')}</span><span>${this._ovFmt(totalCost / 12, 2)} ${currency}</span></div>`);
+      }
       if (baseFeeYearly > 0) {
         const bl = (cfg.base_fee_mode === 'full') ? t(hass,'ovBaseFeeYear') : t(hass,'ovBaseFeeAccrued');
         rows.push(`<div class="ov-row"><span>${bl}</span><span>${this._ovFmt(baseFee,2)} ${currency}</span></div>`);
@@ -3476,10 +3485,11 @@ class EnergyChartsByLutarym extends HTMLElement {
     // tatsaechlichen nichts zu tun hat - im Masonry-Dashboard fuehrte das
     // zu Ueberlappungen oder grossen Luecken.
     if (this._isOverview) {
-      // Titel + Hero + Zeile "Energie" (+ ggf. Grundgebuehr) + Trenner +
-      // Verbrauchsblock + Vergleich (+ ggf. Hinweiszeile).
+      // Titel + Hero + Zeile "Energie" (+ Grundgebuehr bzw. monatliche
+      // Einzahlung) + Trenner + Verbrauchsblock + Vergleich (+ Hinweiszeile).
       const cfg = this._config || {};
-      const hasFee = (cfg.base_fee_yearly != null && cfg.base_fee_yearly !== '')
+      const hasFee = cfg.direction === 'feedin'
+                  || (cfg.base_fee_yearly != null && cfg.base_fee_yearly !== '')
                   || (cfg.base_fee_monthly != null && cfg.base_fee_monthly !== '');
       const note = this._overviewData?.partialYear ? 20 : 0;
       return 32 + (cfg.titleFontSize || 14) * 1.3 + 14

@@ -2,7 +2,7 @@
 
 [English](README.md) · **Deutsch** · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.5.0 · [Changelog](CHANGELOG.md)
+Version 2.6.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card für Home Assistant. Eine einzige Karte, deren Verhalten
 über `card_type` in einem grafischen Konfigurationsformular gewählt wird. Die
@@ -222,7 +222,8 @@ hat.
 Dieselbe Übersicht für die Einspeiserichtung: gleiche Abfrage, gleiche
 Rechnung und gleicher Vorjahresvergleich wie bei `overview`, angewandt auf
 den Einspeisezähler. Aus Kosten werden Einnahmen, die Vergütung mal die im
-laufenden Jahr eingespeisten kWh. Beim Vergleich ist mehr Einspeisung das
+laufenden Jahr eingespeisten kWh. Darunter steht die monatliche Einzahlung:
+die bisherige Vergütung geteilt durch 12. Beim Vergleich ist mehr Einspeisung das
 bessere Ergebnis, ein Plus erscheint deshalb grün und ein Minus rot. Eine
 Grundgebühr gibt es bei der Einspeisevergütung nicht, die Felder dafür
 entfallen. Konfiguration:

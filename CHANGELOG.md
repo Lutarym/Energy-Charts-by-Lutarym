@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.6.0
+
+- English: The feed-in overview now also shows the monthly payment, "Monthly payment (total ÷ 12)": the feed-in revenue of the current year so far divided by 12, in the row below the energy line.
+- Deutsch: Die Einspeiseübersicht zeigt jetzt auch die monatliche Einzahlung, „Monatliche Einzahlung (Gesamt ÷ 12)“: die Einspeisevergütung des laufenden Jahres bisher geteilt durch 12, in der Zeile unter der Energiezeile.
+- Français : l'aperçu injection affiche désormais aussi le versement mensuel, « Versement mensuel (total ÷ 12) » : la rémunération de l'injection de l'année en cours à ce jour divisée par 12, dans la ligne sous celle de l'énergie.
+- 日本語：売電の概要に月々の入金額「月々の入金額（合計 ÷ 12）」も表示するようにしました。本年これまでの売電収入を 12 で割った額で、電力量の行の下に表示します。
+
 ## v2.5.0
 
 - English: The COP card can now take the COP from the heat pump itself instead of calculating it. New option `cop_source`: `calculated` (default, heat ÷ electricity as before) or `entity` with a new field `cop_entity`. A COP sensor is a momentary value whose plain time average is not the seasonal performance factor, because standstill counts as well. With the heat pump's electricity meter set, every hour is therefore weighted by the electricity used, Σ (COP × electricity) ÷ Σ electricity per month and per year, which with a constant COP within the hour equals Σ heat ÷ Σ electricity, the same figure as the calculated mode; in the test both modes agree exactly. Without the electricity meter the card shows the time average of the COP sensor, weighted by time over the year. In the editor the COP source is a dropdown; with the COP entity the heat fields disappear and the electricity meter becomes optional. Also corrected the editor hint for charging efficiency, which still showed the formula 1 − grid ÷ charging instead of the hourly calculation the card performs.

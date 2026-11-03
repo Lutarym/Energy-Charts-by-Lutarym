@@ -2,7 +2,7 @@
 
 **English** · [Deutsch](README.de.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.5.0 · [Changelog](CHANGELOG.md)
+Version 2.6.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card for Home Assistant. A single card whose behaviour is
 chosen via `card_type` in a visual configuration form. Most types draw
@@ -211,7 +211,8 @@ did.
 The same overview for the feed-in direction: the same query, the same
 calculation and the same previous-year comparison as `overview`, applied
 to the feed-in meter. Cost becomes revenue, the feed-in tariff times the
-kWh fed in this year so far. In the comparison more feed-in is the better
+kWh fed in this year so far. Below it the card shows the monthly payment:
+the revenue so far divided by 12. In the comparison more feed-in is the better
 result, so an increase is shown in green and a decrease in red. There is
 no base fee for the feed-in tariff, so those fields are not offered.
 Configuration:
