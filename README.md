@@ -2,14 +2,14 @@
 
 **English** · [Deutsch](README.de.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.6.0 · [Changelog](CHANGELOG.md)
+Version 2.7.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card for Home Assistant. A single card whose behaviour is
 chosen via `card_type` in a visual configuration form. Most types draw
 monthly bar charts (current year vs. up to 3 previous years); a few draw a
 computed ratio (efficiency, self-consumption, COP), and three render a
-text/number summary instead of bars (electricity overview, feed-in
-overview, per-room energy). The card and its editor speak four languages, English, German,
+summary of figures instead (electricity overview and feed-in overview, each
+with monthly bars against the previous year, and per-room energy). The card and its editor speak four languages, English, German,
 French and Japanese, following `hass.language` automatically; any other
 language setting falls back to English.
 
@@ -19,24 +19,24 @@ There are 14 `card_type` presets. Each screenshot below shows the preset
 with its default styling; every colour, title and entity can be overridden
 in the editor.
 
-### autarkie — Self-Sufficiency
+### autarkie: Self-Sufficiency
 
 ![Self-Sufficiency](Image/Autarkie.png)
 
 Monthly average of a self-sufficiency percentage sensor. Y-axis fixed
-0–100 %. Summary value is the yearly average (not a sum), weighted by time:
+from 0 to 100 %. Summary value is the yearly average (not a sum), weighted by time:
 each month counts with the time its average covers, so a month that has
 only just begun does not weigh as much as a full one.
 Default entity: `sensor.autarkie`.
 
-### energy — Power Consumption
+### energy: Power Consumption
 
 ![Power Consumption](Image/Stromverbrauchuebersicht.png)
 
 Monthly consumption in kWh (monthly sum). Auto-scaled Y-axis.
 Default entity: `sensor.stromverbrauch`.
 
-### pv — PV Yield
+### pv: PV Yield
 
 ![PV Yield](Image/PVErtrag.png)
 
@@ -53,7 +53,7 @@ Monthly PV yield in kWh (monthly sum). Two optional overlays:
 
 Default entity: `sensor.pv_ertrag`.
 
-### wallbox — Wallbox
+### wallbox: Wallbox
 
 ![Wallbox](Image/Wallbox.png)
 
@@ -65,12 +65,12 @@ Monthly wallbox charging energy in kWh (monthly sum). Optional overlay:
 
 Default entity: `sensor.wallbox`.
 
-### wallbox_eff — Wallbox Charging Efficiency
+### wallbox_eff: Wallbox Charging Efficiency
 
 ![Wallbox Charging Efficiency](Image/WallboxLadeeffizienz.png)
 
 Share of wallbox charging that happened while no grid power was drawn.
-Fixed 0–100 % bar chart per month. Requires two entities:
+Bar chart per month, fixed from 0 to 100 %. Requires two entities:
 
 - `entity`: total wallbox charging energy (kWh).
 - `grid_entity`: grid draw, given as **power** (W, kW or any other power
@@ -83,9 +83,9 @@ Monthly value = Σ grid-free kWh ÷ Σ charged kWh × 100. No grid draw while
 charging means 100 %. Hours without a grid value are left out instead of
 counting as grid-free.
 
-### eigenverbrauch — Self-Consumption
+### eigenverbrauch: Self-Consumption
 
-Share of PV generation used at home instead of exported. Fixed 0–100 % bar
+Share of PV generation used at home instead of exported. Fixed 0 to 100 % bar
 chart per month. Requires two entities:
 
 - `entity`: PV yield (kWh).
@@ -94,12 +94,12 @@ chart per month. Requires two entities:
 Monthly value = (PV − feed-in) ÷ PV × 100. Both values are directly
 metered, so a plain monthly ratio is exact.
 
-### cop — Heat Pump COP
+### cop: Heat Pump COP
 
 ![Heat Pump COP](Image/WaermepumpeCOP.png)
 
 Heat produced per unit of electricity. Auto-scaled axis; the value is a
-number (typically ~2–5), not a percentage, shown with 2 decimals. There are
+number (typically about 2 to 5), not a percentage, shown with 2 decimals. There are
 two ways to get it, chosen with `cop_source`.
 
 **Calculated** (`cop_source: calculated`, the default):
@@ -128,7 +128,7 @@ COP sensor, weighted by time over the year. If the sensor reads 0 while
 the heat pump stands still, the calculated mode is the more accurate one:
 within an hour the card only sees the average.
 
-### wp — Heat Pump
+### wp: Heat Pump
 
 ![Heat Pump](Image/Waermepumpe.png)
 
@@ -146,18 +146,18 @@ Monthly heat-pump energy in kWh (monthly sum). Optional overlay:
 
 Default entity: `sensor.waermepumpe`.
 
-### klima — Air Conditioning
+### klima: Air Conditioning
 
 Monthly air-conditioning energy in kWh (monthly sum). Supports the same
 optional `temperature_entity` / `temp_mode` overlay as `wp` (more AC use
 tends to track hotter months).
 Default entity: `sensor.klimaanlage`.
 
-### akku — Battery State of Charge
+### akku: Battery State of Charge
 
 ![Battery State of Charge](Image/AkkuLadezustand.png)
 
-Monthly battery state of charge. Y-axis fixed 0–100 %. The bar is always
+Monthly battery state of charge. Y-axis fixed from 0 to 100 %. The bar is always
 anchored at 0 (height = monthly mean, like every other preset). `stat_mode`
 selects the display:
 
@@ -169,7 +169,7 @@ selects the display:
 
 Default entity: `sensor.akku_ladezustand`.
 
-### einspeisung — Grid Feed-in
+### einspeisung: Grid Feed-in
 
 ![Grid Feed-in](Image/Netzeinspeisung.png)
 
@@ -177,12 +177,21 @@ Monthly grid feed-in / export in kWh (monthly sum). This preset has **no
 default entity**: a guessed sensor name would never match a real setup, so
 the card shows a short "select an entity" hint until one is configured.
 
-### overview — Electricity Overview
+### overview: Electricity Overview
 
-![Electricity Overview](Image/Stromuebersicht.png)
+An overview of electricity cost and consumption for the current year:
 
-Not a bar chart. A text/number summary of electricity cost and consumption
-for the current year so far, with an optional previous-year comparison.
+- at the top the cost so far and, next to it, by how many percent it
+  differs from the same period of the previous year (red more expensive,
+  green cheaper),
+- below it the cost per month as bars, the previous year in grey beside
+  them and the monthly payment as a dashed line,
+- with a monthly payment the payment block: payment per month and per year,
+  paid so far, accrued so far and the resulting amount due or credit so far,
+- at the bottom the consumption in kWh with the percentage against the same
+  period of the previous year, and the consumption of the full previous year.
+
+Hovering over or tapping a month shows its cost in both years.
 Configuration:
 
 - `energy_entity`: energy sensor (kWh). **Required.**
@@ -190,41 +199,63 @@ Configuration:
   **Required.**
 - `base_fee_yearly` or `base_fee_monthly`: base fee (use one of the two).
 - `base_fee_mode`: `accrued` (default, prorated to the elapsed part of the
-  year) or `full` (the full amount).
+  year) or `full` (the full amount). Applies to the cost at the top; the
+  monthly bars, the cost comparison and the payment comparison always
+  prorate the base fee.
+- `monthly_payment`: the amount you pay your electricity supplier each
+  month. Without it the payment line and the payment block are left out.
+- `billing_start_month`: month in which your billing year starts, `1` to `12`
+  (default `1`, January). Only affects the payment comparison.
+- `previous_price_per_kwh`: previous year price per kWh for the cost
+  comparison. Empty means the current price.
+- `previous_base_fee_yearly` or `previous_base_fee_monthly`: previous year
+  base fee for the cost comparison. Empty means the current base fee.
 - `currency`: default `EUR`.
 - `previous_year_kwh`: optional manual override for the previous-year
   figure. Normally auto-calculated from statistics (previous Jan 1 to
-  Dec 31); setting it disables the same-period comparison below.
+  Dec 31); setting it disables the percentage comparisons.
 
-The percentage comparison is against the **same period** of the previous
-year, not against the full previous year, and over complete days: Jan 1 to
-yesterday against Jan 1 to the same date a year ago. Today has only just
-begun and would otherwise stand against a full day. If the meter only
-started during the previous year, both periods start on that calendar day,
-so a fresh meter does not show an increase that never happened. A
-full-year comparison would be dominated by the calendar: in September it
-would always read as a large decrease, whatever the actual consumption
-did.
+**Payment comparison.** Payments are counted per started month from the
+start of the billing year: with a January start there are 11 payments on
+25 November. Accrued is the consumption since the start of the billing year
+at the current price plus the prorated base fee. If more has accrued than
+was paid, the card shows the amount due so far, otherwise the credit so far.
+If the billing year does not start in January, the card names its start.
 
-### overview_feedin — Feed-in Overview
+**Comparison with the previous year.** Both percentages compare against the
+**same period** of the previous year, not against the full previous year,
+and over complete days: Jan 1 to yesterday against Jan 1 to the same date a
+year ago. Today has only just begun and would otherwise stand against a full
+day. If the meter only started during the previous year, both periods start
+on that calendar day, so a fresh meter does not show an increase that never
+happened. A full-year comparison would be dominated by the calendar: in
+September it would always read as a large decrease, whatever the actual
+consumption did. In euros the card prices the previous year with the
+previous year's price and base fee where given, otherwise with the current
+values; the cost percentage is then close to the kWh percentage.
+
+### overview_feedin: Feed-in Overview
 
 The same overview for the feed-in direction: the same query, the same
 calculation and the same previous-year comparison as `overview`, applied
 to the feed-in meter. Cost becomes revenue, the feed-in tariff times the
-kWh fed in this year so far. Below it the card shows the monthly payment:
-the revenue so far divided by 12. In the comparison more feed-in is the better
-result, so an increase is shown in green and a decrease in red. There is
-no base fee for the feed-in tariff, so those fields are not offered.
-Configuration:
+kWh fed in this year so far, with the percentage against the same period of
+the previous year. The bars show the revenue per month, the dashed line the
+monthly payment: the revenue so far divided by 12. More feed-in is the
+better result here, so an increase is shown in green and a decrease in red.
+There is no base fee or monthly payment for the feed-in tariff, so those
+fields are not offered. Configuration:
 
 - `energy_entity`: feed-in meter (kWh). **Required.**
 - `price_per_kwh`: feed-in tariff per kWh in EUR (e.g. `0.082` for
   8.2 ct/kWh). **Required.**
+- `previous_price_per_kwh`: previous year feed-in tariff per kWh for the
+  revenue comparison. Empty means the current tariff.
 - `currency`: default `EUR`.
 - `previous_year_kwh`: optional manual override for the previous-year
-  feed-in; setting it disables the same-period comparison.
+  feed-in; setting it disables the percentage comparisons.
 
-### rooms — Room Energy Consumption
+### rooms: Room Energy Consumption
 
 ![Room Energy Consumption](Image/RaumEnergie.png)
 
@@ -381,12 +412,17 @@ energy_entity: sensor.stromverbrauch # required
 price_per_kwh: 0.32       # required (EUR per kWh)
 base_fee_yearly: 120      # or base_fee_monthly: 10
 base_fee_mode: accrued    # accrued (prorated) | full
+monthly_payment: 175      # optional: payment to the supplier per month
+billing_start_month: 3    # optional: start of the billing year (1 to 12)
+previous_price_per_kwh: 0.30   # optional: previous year price
+previous_base_fee_monthly: 10  # optional: previous year base fee
 currency: EUR
 previous_year_kwh: 4200   # optional manual override
 
 # --- overview_feedin only ---
 energy_entity: sensor.einspeisung # required: feed-in meter (kWh)
 price_per_kwh: 0.082      # required (feed-in tariff, EUR per kWh)
+previous_price_per_kwh: 0.08   # optional: previous year tariff
 currency: EUR
 previous_year_kwh: 3900   # optional manual override
 
@@ -421,17 +457,17 @@ ticks on the pv preset show their own value too).
 
 | card_type | Default entity | Title | Color | Extra required entity |
 |---|---|---|---|---|
-| autarkie | sensor.autarkie | Self-Sufficiency | `#22c55e` | — |
-| energy | sensor.stromverbrauch | Power Consumption | `#facc15` | — |
-| pv | sensor.pv_ertrag | PV Yield | `#f59e0b` | — |
-| wallbox | sensor.wallbox | Wallbox | `#3b82f6` | — |
+| autarkie | sensor.autarkie | Self-Sufficiency | `#22c55e` | *(none)* |
+| energy | sensor.stromverbrauch | Power Consumption | `#facc15` | *(none)* |
+| pv | sensor.pv_ertrag | PV Yield | `#f59e0b` | *(none)* |
+| wallbox | sensor.wallbox | Wallbox | `#3b82f6` | *(none)* |
 | wallbox_eff | *(none)* | Wallbox Charging Efficiency | `#6366f1` | `grid_entity` |
 | eigenverbrauch | *(none)* | Self-Consumption | `#84cc16` | `feedin_entity` |
 | cop | *(none)* | Heat Pump COP | `#d946ef` | `heat_entity` or `cop_entity` |
-| wp | sensor.waermepumpe | Heat Pump | `#ef4444` | — |
-| klima | sensor.klimaanlage | Air Conditioning | `#06b6d4` | — |
-| akku | sensor.akku_ladezustand | Battery State of Charge | `#8b5cf6` | — |
-| einspeisung | *(none)* | Grid Feed-in | `#ec4899` | — |
+| wp | sensor.waermepumpe | Heat Pump | `#ef4444` | *(none)* |
+| klima | sensor.klimaanlage | Air Conditioning | `#06b6d4` | *(none)* |
+| akku | sensor.akku_ladezustand | Battery State of Charge | `#8b5cf6` | *(none)* |
+| einspeisung | *(none)* | Grid Feed-in | `#ec4899` | *(none)* |
 | overview | *(none)* | Electricity Overview | `#0ea5e9` | `energy_entity`, `price_per_kwh` |
 | overview_feedin | *(none)* | Feed-in Overview | `#ec4899` | `energy_entity`, `price_per_kwh` |
 | rooms | *(none)* | Room Energy Consumption | `#10b981` | `rooms` list |
@@ -439,6 +475,17 @@ ticks on the pv preset show their own value too).
 The default entities are placeholders; enter your actual entity ID in the
 editor. Presets marked *(none)* have no default at all and show a short
 "select an entity" hint until configured.
+
+## Loading and cache
+
+The card keeps the values it loaded last, in memory and in the browser's
+localStorage. When a card is rebuilt, for example while editing the
+dashboard or in the editor preview, it shows the values at once without a
+new query. After reloading the page the last values appear straight away
+and fresh ones are fetched in the background. Identical statistics queries
+of several cards run only once, and the monthly values of all years come in
+one query. Only finished values are stored, for at most seven days. A double
+click on a bar card reloads it immediately.
 
 ## License
 

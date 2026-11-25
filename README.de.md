@@ -2,14 +2,15 @@
 
 [English](README.md) · **Deutsch** · [Français](README.fr.md) · [日本語](README.ja.md)
 
-Version 2.6.0 · [Changelog](CHANGELOG.md)
+Version 2.7.0 · [Changelog](CHANGELOG.md)
 
 Lovelace Custom Card für Home Assistant. Eine einzige Karte, deren Verhalten
 über `card_type` in einem grafischen Konfigurationsformular gewählt wird. Die
 meisten Typen zeichnen monatliche Balkendiagramme (aktuelles Jahr gegen bis zu
 3 Vorjahre), einige zeigen ein berechnetes Verhältnis (Effizienz,
-Eigenverbrauch, COP), und drei stellen statt Balken eine Text- und
-Zahlenübersicht dar (Stromübersicht, Einspeiseübersicht, Raum-Energie). Karte und Editor sprechen
+Eigenverbrauch, COP), und drei stellen stattdessen eine Übersicht in Zahlen
+dar (Stromübersicht und Einspeiseübersicht, beide mit Monatsbalken gegen das
+Vorjahr, sowie Raum-Energie). Karte und Editor sprechen
 vier Sprachen: Englisch, Deutsch, Französisch und Japanisch. Sie folgen
 automatisch `hass.language`, jede andere Spracheinstellung fällt auf Englisch
 zurück.
@@ -20,24 +21,24 @@ Es gibt 14 `card_type`-Vorlagen. Jeder Screenshot unten zeigt die Vorlage in
 ihrer Standardgestaltung; Farbe, Titel und Entity lassen sich im Editor
 überschreiben.
 
-### autarkie — Autarkie
+### autarkie: Autarkie
 
 ![Autarkie](Image/Autarkie.png)
 
 Monatsdurchschnitt eines Autarkiegrad-Sensors in Prozent. Y-Achse fest
-0–100 %. Der Jahreswert ist der Durchschnitt, nicht die Summe, und zwar
+von 0 bis 100 %. Der Jahreswert ist der Durchschnitt, nicht die Summe, und zwar
 zeitgewichtet: jeder Monat zählt mit der Zeit, die sein Mittelwert abdeckt,
 ein gerade begonnener Monat also nicht so viel wie ein voller.
 Standard-Entity: `sensor.autarkie`.
 
-### energy — Stromverbrauch
+### energy: Stromverbrauch
 
 ![Stromverbrauch](Image/Stromverbrauchuebersicht.png)
 
 Monatsverbrauch in kWh (Monatssumme). Automatisch skalierte Y-Achse.
 Standard-Entity: `sensor.stromverbrauch`.
 
-### pv — PV Ertrag
+### pv: PV Ertrag
 
 ![PV Ertrag](Image/PVErtrag.png)
 
@@ -55,7 +56,7 @@ Monatlicher PV-Ertrag in kWh (Monatssumme). Zwei optionale Überlagerungen:
 
 Standard-Entity: `sensor.pv_ertrag`.
 
-### wallbox — Wallbox
+### wallbox: Wallbox
 
 ![Wallbox](Image/Wallbox.png)
 
@@ -69,12 +70,12 @@ Monatliche Ladeenergie der Wallbox in kWh (Monatssumme). Optionale
 
 Standard-Entity: `sensor.wallbox`.
 
-### wallbox_eff — Wallbox Ladeeffizienz
+### wallbox_eff: Wallbox Ladeeffizienz
 
 ![Wallbox Ladeeffizienz](Image/WallboxLadeeffizienz.png)
 
 Anteil der Wallbox-Ladung, der ohne Netzbezug stattfand. Festes
-0–100-%-Balkendiagramm je Monat. Benötigt zwei Entities:
+Balkendiagramm von 0 bis 100 % je Monat. Benötigt zwei Entities:
 
 - `entity`: gesamte Ladeenergie der Wallbox (kWh).
 - `grid_entity`: Netzbezug, angegeben als **Leistung** (W, kW oder jede
@@ -91,10 +92,10 @@ Netzwert fallen heraus, statt als netzfrei zu zählen.
 Der Jahreswert in der Summenzeile ist energiegewichtet, also
 Σ netzfreie kWh ÷ Σ geladene kWh, nicht der Durchschnitt der Monatsquoten.
 
-### eigenverbrauch — Eigenverbrauchsquote
+### eigenverbrauch: Eigenverbrauchsquote
 
 Anteil der PV-Erzeugung, der im Haus verbraucht statt eingespeist wurde.
-Festes 0–100-%-Balkendiagramm je Monat. Benötigt zwei Entities:
+Festes Balkendiagramm von 0 bis 100 % je Monat. Benötigt zwei Entities:
 
 - `entity`: PV-Ertrag (kWh).
 - `feedin_entity`: Netzeinspeisung (kWh).
@@ -103,12 +104,12 @@ Monatswert = (PV − Einspeisung) ÷ PV × 100. Beide Werte sind direkt gemessen
 das einfache Monatsverhältnis ist daher exakt. Der Jahreswert ist wie oben
 energiegewichtet.
 
-### cop — Wärmepumpe COP
+### cop: Wärmepumpe COP
 
 ![Wärmepumpe COP](Image/WaermepumpeCOP.png)
 
 Erzeugte Wärme je eingesetzter Stromeinheit. Automatisch skalierte Achse; der
-Wert ist eine Zahl (typisch etwa 2–5), kein Prozentwert, mit 2 Nachkommastellen.
+Wert ist eine Zahl (typisch etwa 2 bis 5), kein Prozentwert, mit 2 Nachkommastellen.
 Es gibt zwei Wege dorthin, gewählt mit `cop_source`.
 
 **Berechnet** (`cop_source: calculated`, Standard):
@@ -135,7 +136,7 @@ die Karte den Zeitdurchschnitt des COP-Sensors, im Jahr zeitgewichtet.
 Zeigt der Sensor im Stillstand 0, ist der Rechenmodus genauer: innerhalb
 einer Stunde sieht die Karte nur den Mittelwert.
 
-### wp — Wärmepumpe
+### wp: Wärmepumpe
 
 ![Wärmepumpe](Image/Waermepumpe.png)
 
@@ -156,18 +157,18 @@ Monatlicher Stromverbrauch der Wärmepumpe in kWh (Monatssumme). Optionale
 
 Standard-Entity: `sensor.waermepumpe`.
 
-### klima — Klimaanlage
+### klima: Klimaanlage
 
 Monatlicher Stromverbrauch der Klimaanlage in kWh (Monatssumme). Unterstützt
 dieselbe optionale `temperature_entity` / `temp_mode`-Überlagerung wie `wp`
 (mehr Klimabetrieb fällt meist in die heißeren Monate).
 Standard-Entity: `sensor.klimaanlage`.
 
-### akku — Akku-Ladezustand
+### akku: Akku-Ladezustand
 
 ![Akku-Ladezustand](Image/AkkuLadezustand.png)
 
-Monatlicher Ladezustand des Akkus. Y-Achse fest 0–100 %. Der Balken beginnt
+Monatlicher Ladezustand des Akkus. Y-Achse fest von 0 bis 100 %. Der Balken beginnt
 immer bei 0 (Höhe = Monatsmittel, wie bei allen anderen Vorlagen).
 `stat_mode` wählt die Darstellung:
 
@@ -179,7 +180,7 @@ immer bei 0 (Höhe = Monatsmittel, wie bei allen anderen Vorlagen).
 
 Standard-Entity: `sensor.akku_ladezustand`.
 
-### einspeisung — PV Netz-Einspeisung
+### einspeisung: PV Netz-Einspeisung
 
 ![PV Netz-Einspeisung](Image/Netzeinspeisung.png)
 
@@ -188,54 +189,84 @@ Standard-Entity**: ein geratener Sensorname würde in keiner echten Anlage
 passen, deshalb zeigt die Karte einen kurzen Hinweis "Entity auswählen", bis
 eine konfiguriert ist.
 
-### overview — Stromübersicht
+### overview: Stromübersicht
 
-![Stromübersicht](Image/Stromuebersicht.png)
+Eine Übersicht über Stromkosten und Verbrauch des laufenden Jahres:
 
-Kein Balkendiagramm. Eine Text- und Zahlenübersicht über Stromkosten und
-Verbrauch des laufenden Jahres, mit optionalem Vorjahresvergleich.
-Konfiguration:
+- oben die Stromkosten bisher und daneben, um wie viel Prozent sie vom
+  gleichen Zeitraum des Vorjahres abweichen (rot teurer, grün günstiger),
+- darunter die Kosten je Monat als Balken, das Vorjahr grau daneben und der
+  Abschlag als gestrichelte Linie,
+- mit Abschlag der Abschlag-Block: Abschlag im Monat und im Jahr, bisher
+  bezahlt, bisher aufgelaufen und daraus Nachzahlung oder Guthaben bisher,
+- unten der Verbrauch in kWh mit Prozent zum Vorjahreszeitraum und der
+  Verbrauch des ganzen Vorjahres.
+
+Fährt man über einen Monat oder tippt ihn an, zeigt ein Hinweis die Kosten
+dieses Monats in beiden Jahren. Konfiguration:
 
 - `energy_entity`: Energiesensor (kWh). **Pflicht.**
 - `price_per_kwh`: Preis pro kWh in EUR (z. B. `0.32` für 32 ct/kWh).
   **Pflicht.**
 - `base_fee_yearly` oder `base_fee_monthly`: Grundgebühr (eines von beiden).
 - `base_fee_mode`: `accrued` (Standard, anteilig zum abgelaufenen Teil des
-  Jahres) oder `full` (der volle Betrag).
+  Jahres) oder `full` (der volle Betrag). Gilt für die Kosten oben;
+  Monatsbalken, Euro-Vergleich und Abschlag-Vergleich rechnen die
+  Grundgebühr immer anteilig.
+- `monthly_payment`: Abschlag, den du monatlich an deinen Stromanbieter
+  zahlst. Ohne Angabe entfallen Abschlag-Linie und Abschlag-Block.
+- `billing_start_month`: Monat, in dem dein Abrechnungsjahr beginnt, `1` bis
+  `12` (Standard `1`, Januar). Gilt nur für den Abschlag-Vergleich.
+- `previous_price_per_kwh`: Preis des Vorjahres pro kWh für den
+  Euro-Vergleich. Leer heißt: aktueller Preis.
+- `previous_base_fee_yearly` oder `previous_base_fee_monthly`: Grundgebühr
+  des Vorjahres für den Euro-Vergleich. Leer heißt: aktuelle Grundgebühr.
 - `currency`: Standard `EUR`.
 - `previous_year_kwh`: optionale manuelle Vorgabe für den Vorjahreswert.
   Normalerweise automatisch aus der Statistik berechnet (1.1. bis 31.12. des
-  Vorjahres); wird er gesetzt, entfällt der Zeitraumvergleich weiter unten.
+  Vorjahres); wird er gesetzt, entfallen die Prozentvergleiche.
 
-Der Prozentvergleich läuft gegen den **gleichen Zeitraum** des Vorjahres,
-nicht gegen das volle Vorjahr, und über volle Tage: 1.1. bis gestern gegen
-1.1. bis zum selben Datum vor einem Jahr. Der heutige Tag hat gerade erst
-begonnen und stünde sonst gegen einen vollen Tag. Beginnt der Zähler erst
-im Lauf des Vorjahres, starten beide Zeiträume an diesem Kalendertag, damit
-ein neuer Zähler keinen Mehrverbrauch zeigt, den es nicht gibt. Ein
-Vergleich mit dem vollen Vorjahr wäre vom Kalender bestimmt: im September
-stünde dort immer ein großes Minus, egal wie sich der Verbrauch entwickelt
-hat.
+**Abschlag-Vergleich.** Gezählt wird je angefangenem Monat ab Beginn des
+Abrechnungsjahres: bei Beginn im Januar sind es am 25. November 11 Abschläge.
+Aufgelaufen ist der Verbrauch seit Beginn des Abrechnungsjahres zum aktuellen
+Preis plus die anteilige Grundgebühr. Ist mehr aufgelaufen als bezahlt, steht
+dort die Nachzahlung bisher, sonst das Guthaben bisher. Beginnt das
+Abrechnungsjahr nicht im Januar, nennt die Karte den Beginn.
 
-### overview_feedin — Einspeiseübersicht
+**Vergleich mit dem Vorjahr.** Beide Prozentangaben laufen gegen den
+**gleichen Zeitraum** des Vorjahres, nicht gegen das volle Vorjahr, und über
+volle Tage: 1.1. bis gestern gegen 1.1. bis zum selben Datum vor einem Jahr.
+Der heutige Tag hat gerade erst begonnen und stünde sonst gegen einen vollen
+Tag. Beginnt der Zähler erst im Lauf des Vorjahres, starten beide Zeiträume
+an diesem Kalendertag, damit ein neuer Zähler keinen Mehrverbrauch zeigt,
+den es nicht gibt. Ein Vergleich mit dem vollen Vorjahr wäre vom Kalender
+bestimmt: im September stünde dort immer ein großes Minus, egal wie sich der
+Verbrauch entwickelt hat. In Euro rechnet die Karte das Vorjahr mit Preis und
+Grundgebühr des Vorjahres, soweit angegeben, sonst mit den aktuellen Werten;
+dann liegt die Euro-Prozentzahl nahe an der kWh-Prozentzahl.
+
+### overview_feedin: Einspeiseübersicht
 
 Dieselbe Übersicht für die Einspeiserichtung: gleiche Abfrage, gleiche
 Rechnung und gleicher Vorjahresvergleich wie bei `overview`, angewandt auf
 den Einspeisezähler. Aus Kosten werden Einnahmen, die Vergütung mal die im
-laufenden Jahr eingespeisten kWh. Darunter steht die monatliche Einzahlung:
-die bisherige Vergütung geteilt durch 12. Beim Vergleich ist mehr Einspeisung das
-bessere Ergebnis, ein Plus erscheint deshalb grün und ein Minus rot. Eine
-Grundgebühr gibt es bei der Einspeisevergütung nicht, die Felder dafür
-entfallen. Konfiguration:
+laufenden Jahr eingespeisten kWh, mit Prozent zum Vorjahreszeitraum. Die
+Balken zeigen die Vergütung je Monat, die gestrichelte Linie die monatliche
+Einzahlung: die bisherige Vergütung geteilt durch 12. Mehr Einspeisung ist
+hier das bessere Ergebnis, ein Plus erscheint deshalb grün und ein Minus
+rot. Grundgebühr und Abschlag gibt es bei der Einspeisevergütung nicht, die
+Felder dafür entfallen. Konfiguration:
 
 - `energy_entity`: Einspeisezähler (kWh). **Pflicht.**
 - `price_per_kwh`: Vergütung pro kWh in EUR (z. B. `0.082` für 8,2 ct/kWh).
   **Pflicht.**
+- `previous_price_per_kwh`: Vergütung des Vorjahres pro kWh für den
+  Euro-Vergleich. Leer heißt: aktuelle Vergütung.
 - `currency`: Standard `EUR`.
 - `previous_year_kwh`: optionale manuelle Vorgabe für die Einspeisung des
-  Vorjahres; wird sie gesetzt, entfällt der Zeitraumvergleich.
+  Vorjahres; wird sie gesetzt, entfallen die Prozentvergleiche.
 
-### rooms — Stromverbrauch Räume
+### rooms: Stromverbrauch Räume
 
 ![Stromverbrauch Räume](Image/RaumEnergie.png)
 
@@ -395,12 +426,17 @@ energy_entity: sensor.stromverbrauch # Pflicht
 price_per_kwh: 0.32       # Pflicht (EUR pro kWh)
 base_fee_yearly: 120      # oder base_fee_monthly: 10
 base_fee_mode: accrued    # accrued (anteilig) | full
+monthly_payment: 175      # optional: Abschlag pro Monat
+billing_start_month: 3    # optional: Beginn des Abrechnungsjahres (1 bis 12)
+previous_price_per_kwh: 0.30   # optional: Preis des Vorjahres
+previous_base_fee_monthly: 10  # optional: Grundgebühr des Vorjahres
 currency: EUR
 previous_year_kwh: 4200   # optionale manuelle Vorgabe
 
 # --- nur overview_feedin ---
 energy_entity: sensor.einspeisung # Pflicht: Einspeisezähler (kWh)
 price_per_kwh: 0.082      # Pflicht (Vergütung, EUR pro kWh)
+previous_price_per_kwh: 0.08   # optional: Vergütung des Vorjahres
 currency: EUR
 previous_year_kwh: 3900   # optionale manuelle Vorgabe
 
@@ -435,17 +471,17 @@ die Spitzenleistungs-Striche der pv-Vorlage zeigen ebenfalls ihren Wert).
 
 | card_type | Standard-Entity | Titel | Farbe | Zusätzlich nötige Entity |
 |---|---|---|---|---|
-| autarkie | sensor.autarkie | Autarkie | `#22c55e` | — |
-| energy | sensor.stromverbrauch | Stromverbrauch | `#facc15` | — |
-| pv | sensor.pv_ertrag | PV Ertrag | `#f59e0b` | — |
-| wallbox | sensor.wallbox | Wallbox | `#3b82f6` | — |
+| autarkie | sensor.autarkie | Autarkie | `#22c55e` | *(keine)* |
+| energy | sensor.stromverbrauch | Stromverbrauch | `#facc15` | *(keine)* |
+| pv | sensor.pv_ertrag | PV Ertrag | `#f59e0b` | *(keine)* |
+| wallbox | sensor.wallbox | Wallbox | `#3b82f6` | *(keine)* |
 | wallbox_eff | *(keine)* | Wallbox Ladeeffizienz | `#6366f1` | `grid_entity` |
 | eigenverbrauch | *(keine)* | Eigenverbrauchsquote | `#84cc16` | `feedin_entity` |
 | cop | *(keine)* | Wärmepumpe COP | `#d946ef` | `heat_entity` oder `cop_entity` |
-| wp | sensor.waermepumpe | Wärmepumpe | `#ef4444` | — |
-| klima | sensor.klimaanlage | Klimaanlage | `#06b6d4` | — |
-| akku | sensor.akku_ladezustand | Akku-Ladezustand | `#8b5cf6` | — |
-| einspeisung | *(keine)* | PV Netz-Einspeisung | `#ec4899` | — |
+| wp | sensor.waermepumpe | Wärmepumpe | `#ef4444` | *(keine)* |
+| klima | sensor.klimaanlage | Klimaanlage | `#06b6d4` | *(keine)* |
+| akku | sensor.akku_ladezustand | Akku-Ladezustand | `#8b5cf6` | *(keine)* |
+| einspeisung | *(keine)* | PV Netz-Einspeisung | `#ec4899` | *(keine)* |
 | overview | *(keine)* | Stromübersicht | `#0ea5e9` | `energy_entity`, `price_per_kwh` |
 | overview_feedin | *(keine)* | Einspeiseübersicht | `#ec4899` | `energy_entity`, `price_per_kwh` |
 | rooms | *(keine)* | Stromverbrauch Räume | `#10b981` | Liste `rooms` |
@@ -453,6 +489,18 @@ die Spitzenleistungs-Striche der pv-Vorlage zeigen ebenfalls ihren Wert).
 Die Standard-Entities sind Platzhalter; trage im Editor deine tatsächliche
 Entity-ID ein. Vorlagen mit *(keine)* haben überhaupt keinen Standard und
 zeigen einen kurzen Hinweis "Entity auswählen", bis eine konfiguriert ist.
+
+## Laden und Zwischenspeicher
+
+Die Karte merkt sich die zuletzt geladenen Werte, im Speicher und im
+localStorage des Browsers. Wird eine Karte neu aufgebaut, etwa beim
+Bearbeiten des Dashboards oder in der Editor-Vorschau, zeigt sie die Werte
+sofort und fragt nicht neu. Nach dem Neuladen der Seite erscheinen die
+letzten Werte gleich und werden im Hintergrund frisch geholt. Gleiche
+Statistikabfragen mehrerer Karten laufen nur einmal, und die Monatswerte
+aller Jahre kommen in einer Abfrage. Gespeichert werden nur fertig
+gerechnete Werte, höchstens sieben Tage lang. Ein Doppelklick auf eine
+Balkenkarte lädt sofort neu.
 
 ## Lizenz
 

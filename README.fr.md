@@ -2,15 +2,15 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Français** · [日本語](README.ja.md)
 
-Version 2.6.0 · [Changelog](CHANGELOG.md)
+Version 2.7.0 · [Changelog](CHANGELOG.md)
 
 Carte Lovelace personnalisée pour Home Assistant. Une seule carte dont le
 comportement se choisit avec `card_type` dans un formulaire de configuration
 graphique. La plupart des types tracent des graphiques mensuels en barres
 (année en cours contre jusqu'à 3 années précédentes), quelques-uns affichent
-un rapport calculé (efficacité, autoconsommation, COP), et trois présentent un
-résumé chiffré au lieu de barres (aperçu électricité, aperçu injection,
-énergie par pièce). La
+un rapport calculé (efficacité, autoconsommation, COP), et trois présentent
+plutôt un résumé chiffré (aperçu électricité et aperçu injection, chacun avec
+des barres mensuelles face à l'année précédente, et énergie par pièce). La
 carte et son éditeur parlent quatre langues : anglais, allemand, français et
 japonais. Ils suivent automatiquement `hass.language` ; tout autre réglage de
 langue revient à l'anglais.
@@ -21,17 +21,17 @@ Il existe 14 préréglages `card_type`. Chaque capture ci-dessous montre le
 préréglage avec sa mise en forme par défaut ; couleur, titre et entité se
 redéfinissent dans l'éditeur.
 
-### autarkie — Autonomie
+### autarkie : Autonomie
 
 ![Autonomie](Image/Autarkie.png)
 
 Moyenne mensuelle d'un capteur de taux d'autonomie en pourcentage. Axe Y fixe
-0–100 %. La valeur annuelle est la moyenne, pas la somme, pondérée par le
+de 0 à 100 %. La valeur annuelle est la moyenne, pas la somme, pondérée par le
 temps : chaque mois compte selon la durée que couvre sa moyenne, un mois à
 peine commencé ne pèse donc pas autant qu'un mois complet.
 Entité par défaut : `sensor.autarkie`.
 
-### energy — Consommation électrique
+### energy : Consommation électrique
 
 ![Consommation électrique](Image/Stromverbrauchuebersicht.png)
 
@@ -39,7 +39,7 @@ Consommation mensuelle en kWh (somme du mois). Axe Y mis à l'échelle
 automatiquement.
 Entité par défaut : `sensor.stromverbrauch`.
 
-### pv — Production PV
+### pv : Production PV
 
 ![Production PV](Image/PVErtrag.png)
 
@@ -58,7 +58,7 @@ facultatives :
 
 Entité par défaut : `sensor.pv_ertrag`.
 
-### wallbox — Borne de recharge
+### wallbox : Borne de recharge
 
 ![Borne de recharge](Image/Wallbox.png)
 
@@ -72,12 +72,12 @@ facultative :
 
 Entité par défaut : `sensor.wallbox`.
 
-### wallbox_eff — Efficacité de charge
+### wallbox_eff : Efficacité de charge
 
 ![Efficacité de charge](Image/WallboxLadeeffizienz.png)
 
 Part de la charge de la borne effectuée sans soutirage sur le réseau.
-Graphique en barres fixe 0–100 % par mois. Nécessite deux entités :
+Graphique en barres par mois, fixe de 0 à 100 %. Nécessite deux entités :
 
 - `entity` : énergie de charge totale de la borne (kWh).
 - `grid_entity` : soutirage réseau, donné en **puissance** (W, kW ou toute
@@ -94,10 +94,10 @@ sans valeur réseau sont écartées au lieu de compter comme sans réseau.
 La valeur annuelle de la ligne de synthèse est pondérée par l'énergie, soit
 Σ kWh sans réseau ÷ Σ kWh chargés, et non la moyenne des taux mensuels.
 
-### eigenverbrauch — Autoconsommation
+### eigenverbrauch : Autoconsommation
 
 Part de la production PV consommée sur place au lieu d'être injectée.
-Graphique en barres fixe 0–100 % par mois. Nécessite deux entités :
+Graphique en barres par mois, fixe de 0 à 100 %. Nécessite deux entités :
 
 - `entity` : production PV (kWh).
 - `feedin_entity` : injection sur le réseau (kWh).
@@ -106,7 +106,7 @@ Valeur mensuelle = (PV − injection) ÷ PV × 100. Les deux valeurs sont mesur�
 directement, le simple rapport mensuel est donc exact. La valeur annuelle est
 pondérée par l'énergie comme ci-dessus.
 
-### cop — COP pompe à chaleur
+### cop : COP pompe à chaleur
 
 ![COP pompe à chaleur](Image/WaermepumpeCOP.png)
 
@@ -142,7 +142,7 @@ moyenne dans le temps du capteur, pondérée par le temps sur l'année. Si le
 capteur indique 0 à l'arrêt, le mode calculé est plus précis : au sein d'une
 heure, la carte ne voit que la moyenne.
 
-### wp — Pompe à chaleur
+### wp : Pompe à chaleur
 
 ![Pompe à chaleur](Image/Waermepumpe.png)
 
@@ -163,7 +163,7 @@ mois). Superposition facultative :
 
 Entité par défaut : `sensor.waermepumpe`.
 
-### klima — Climatisation
+### klima : Climatisation
 
 Consommation électrique mensuelle de la climatisation en kWh (somme du mois).
 Prend en charge la même superposition facultative `temperature_entity` /
@@ -171,11 +171,11 @@ Prend en charge la même superposition facultative `temperature_entity` /
 chauds).
 Entité par défaut : `sensor.klimaanlage`.
 
-### akku — État de charge batterie
+### akku : État de charge batterie
 
 ![État de charge batterie](Image/AkkuLadezustand.png)
 
-État de charge mensuel de la batterie. Axe Y fixe 0–100 %. La barre part
+État de charge mensuel de la batterie. Axe Y fixe de 0 à 100 %. La barre part
 toujours de 0 (hauteur = moyenne mensuelle, comme tous les autres
 préréglages). `stat_mode` choisit l'affichage :
 
@@ -187,7 +187,7 @@ préréglages). `stat_mode` choisit l'affichage :
 
 Entité par défaut : `sensor.akku_ladezustand`.
 
-### einspeisung — Injection réseau PV
+### einspeisung : Injection réseau PV
 
 ![Injection réseau PV](Image/Netzeinspeisung.png)
 
@@ -196,58 +196,93 @@ Injection mensuelle sur le réseau en kWh (somme du mois). Ce préréglage n'a
 aucune installation réelle, la carte affiche donc une courte invite
 « sélectionner une entité » tant qu'aucune n'est configurée.
 
-### overview — Aperçu électricité
+### overview : Aperçu électricité
 
-![Aperçu électricité](Image/Stromuebersicht.png)
+Un aperçu du coût et de la consommation d'électricité de l'année en cours :
 
-Pas un graphique en barres. Un résumé chiffré du coût et de la consommation
-d'électricité de l'année en cours, avec comparaison facultative à l'année
-précédente. Configuration :
+- en haut le coût à ce jour et, à côté, l'écart en pourcentage avec la même
+  période de l'année précédente (rouge plus cher, vert moins cher),
+- en dessous le coût par mois en barres, l'année précédente en gris à côté
+  et la mensualité en ligne pointillée,
+- avec une mensualité, le bloc mensualités : mensualité par mois et par an,
+  montant payé à ce jour, coût cumulé à ce jour et, par différence, le reste
+  à payer ou le trop-perçu,
+- en bas la consommation en kWh avec le pourcentage par rapport à la même
+  période de l'année précédente, et la consommation de toute l'année
+  précédente.
+
+Survoler ou toucher un mois affiche son coût pour les deux années.
+Configuration :
 
 - `energy_entity` : capteur d'énergie (kWh). **Requis.**
 - `price_per_kwh` : prix du kWh en EUR (p. ex. `0.32` pour 32 ct/kWh).
   **Requis.**
 - `base_fee_yearly` ou `base_fee_monthly` : abonnement (l'un des deux).
 - `base_fee_mode` : `accrued` (par défaut, au prorata de la partie écoulée de
-  l'année) ou `full` (le montant entier).
+  l'année) ou `full` (le montant entier). S'applique au coût en haut ; les
+  barres mensuelles, la comparaison des coûts et celle des mensualités
+  comptent toujours l'abonnement au prorata.
+- `monthly_payment` : la mensualité que vous payez à votre fournisseur.
+  Sans elle, la ligne et le bloc des mensualités ne sont pas affichés.
+- `billing_start_month` : mois où commence votre année de facturation, `1` à
+  `12` (par défaut `1`, janvier). Ne concerne que la comparaison des
+  mensualités.
+- `previous_price_per_kwh` : prix du kWh de l'année précédente pour la
+  comparaison des coûts. Vide : prix actuel.
+- `previous_base_fee_yearly` ou `previous_base_fee_monthly` : abonnement de
+  l'année précédente pour la comparaison des coûts. Vide : abonnement actuel.
 - `currency` : `EUR` par défaut.
 - `previous_year_kwh` : valeur manuelle facultative pour l'année précédente.
   Normalement calculée automatiquement à partir des statistiques (1er janvier
-  au 31 décembre précédent) ; la renseigner désactive la comparaison sur la
-  même période décrite ci-dessous.
+  au 31 décembre précédent) ; la renseigner désactive les comparaisons en
+  pourcentage.
 
-La comparaison en pourcentage porte sur la **même période** de l'année
-précédente, et non sur l'année précédente complète, et sur des jours
-complets : du 1er janvier à hier contre du 1er janvier à la même date il y
-a un an. La journée en cours vient à peine de commencer et serait sinon
-comparée à une journée entière. Si le compteur n'a démarré qu'en cours
-d'année précédente, les deux périodes commencent à ce jour du calendrier,
-pour qu'un compteur neuf n'affiche pas une hausse qui n'a pas eu lieu. Une
-comparaison à l'année complète serait dictée par le calendrier : en
-septembre elle afficherait toujours une forte baisse, quelle que soit
-l'évolution réelle de la consommation.
+**Comparaison des mensualités.** Elles sont comptées par mois entamé depuis
+le début de l'année de facturation : avec un début en janvier, il y en a 11
+le 25 novembre. Le coût cumulé est la consommation depuis le début de
+l'année de facturation au prix actuel, plus l'abonnement au prorata. Si le
+coût cumulé dépasse le montant payé, la carte affiche le reste à payer,
+sinon le trop-perçu. Si l'année de facturation ne commence pas en janvier,
+la carte indique son début.
 
-### overview_feedin — Aperçu injection
+**Comparaison avec l'année précédente.** Les deux pourcentages portent sur
+la **même période** de l'année précédente, et non sur l'année précédente
+complète, et sur des jours complets : du 1er janvier à hier contre du 1er
+janvier à la même date il y a un an. La journée en cours vient à peine de
+commencer et serait sinon comparée à une journée entière. Si le compteur n'a
+démarré qu'en cours d'année précédente, les deux périodes commencent à ce
+jour du calendrier, pour qu'un compteur neuf n'affiche pas une hausse qui
+n'a pas eu lieu. Une comparaison à l'année complète serait dictée par le
+calendrier : en septembre elle afficherait toujours une forte baisse, quelle
+que soit l'évolution réelle de la consommation. En euros, la carte valorise
+l'année précédente avec le prix et l'abonnement de l'année précédente s'ils
+sont indiqués, sinon avec les valeurs actuelles ; le pourcentage en euros est
+alors proche de celui en kWh.
+
+### overview_feedin : Aperçu injection
 
 Le même aperçu pour le sens de l'injection : même requête, même calcul et
 même comparaison avec l'année précédente que `overview`, appliqués au
 compteur d'injection. Le coût devient une recette, le tarif de rachat
-multiplié par les kWh injectés depuis le début de l'année. En dessous figure
-le versement mensuel : la rémunération à ce jour divisée par 12. Dans la
-comparaison, davantage d'injection est le meilleur résultat : une hausse
-s'affiche donc en vert et une baisse en rouge. La rémunération de
-l'injection n'a pas d'abonnement, ces champs ne sont donc pas proposés.
-Configuration :
+multiplié par les kWh injectés depuis le début de l'année, avec le
+pourcentage par rapport à la même période de l'année précédente. Les barres
+montrent la recette par mois, la ligne pointillée le versement mensuel : la
+rémunération à ce jour divisée par 12. Davantage d'injection est ici le
+meilleur résultat : une hausse s'affiche donc en vert et une baisse en
+rouge. La rémunération de l'injection n'a ni abonnement ni mensualité, ces
+champs ne sont donc pas proposés. Configuration :
 
 - `energy_entity` : compteur d'injection (kWh). **Requis.**
 - `price_per_kwh` : tarif de rachat du kWh en EUR (p. ex. `0.082` pour
   8,2 ct/kWh). **Requis.**
+- `previous_price_per_kwh` : tarif de rachat de l'année précédente pour la
+  comparaison des recettes. Vide : tarif actuel.
 - `currency` : `EUR` par défaut.
 - `previous_year_kwh` : valeur manuelle facultative pour l'injection de
-  l'année précédente ; la renseigner désactive la comparaison sur la même
-  période.
+  l'année précédente ; la renseigner désactive les comparaisons en
+  pourcentage.
 
-### rooms — Consommation par pièce
+### rooms : Consommation par pièce
 
 ![Consommation par pièce](Image/RaumEnergie.png)
 
@@ -411,12 +446,17 @@ energy_entity: sensor.stromverbrauch # requis
 price_per_kwh: 0.32       # requis (EUR par kWh)
 base_fee_yearly: 120      # ou base_fee_monthly: 10
 base_fee_mode: accrued    # accrued (au prorata) | full
+monthly_payment: 175      # facultatif : mensualité au fournisseur
+billing_start_month: 3    # facultatif : début de l'année de facturation (1 à 12)
+previous_price_per_kwh: 0.30   # facultatif : prix de l'année précédente
+previous_base_fee_monthly: 10  # facultatif : abonnement de l'année précédente
 currency: EUR
 previous_year_kwh: 4200   # valeur manuelle facultative
 
 # --- overview_feedin uniquement ---
 energy_entity: sensor.einspeisung # requis : compteur d'injection (kWh)
 price_per_kwh: 0.082      # requis (tarif de rachat, EUR par kWh)
+previous_price_per_kwh: 0.08   # facultatif : tarif de l'année précédente
 currency: EUR
 previous_year_kwh: 3900   # valeur manuelle facultative
 
@@ -451,17 +491,17 @@ akku ; les traits de pointe du préréglage pv affichent aussi leur valeur).
 
 | card_type | Entité par défaut | Titre | Couleur | Entité requise en plus |
 |---|---|---|---|---|
-| autarkie | sensor.autarkie | Autonomie | `#22c55e` | — |
-| energy | sensor.stromverbrauch | Consommation électrique | `#facc15` | — |
-| pv | sensor.pv_ertrag | Production PV | `#f59e0b` | — |
-| wallbox | sensor.wallbox | Borne de recharge | `#3b82f6` | — |
+| autarkie | sensor.autarkie | Autonomie | `#22c55e` | *(aucune)* |
+| energy | sensor.stromverbrauch | Consommation électrique | `#facc15` | *(aucune)* |
+| pv | sensor.pv_ertrag | Production PV | `#f59e0b` | *(aucune)* |
+| wallbox | sensor.wallbox | Borne de recharge | `#3b82f6` | *(aucune)* |
 | wallbox_eff | *(aucune)* | Efficacité de charge | `#6366f1` | `grid_entity` |
 | eigenverbrauch | *(aucune)* | Autoconsommation | `#84cc16` | `feedin_entity` |
 | cop | *(aucune)* | COP pompe à chaleur | `#d946ef` | `heat_entity` ou `cop_entity` |
-| wp | sensor.waermepumpe | Pompe à chaleur | `#ef4444` | — |
-| klima | sensor.klimaanlage | Climatisation | `#06b6d4` | — |
-| akku | sensor.akku_ladezustand | État de charge batterie | `#8b5cf6` | — |
-| einspeisung | *(aucune)* | Injection réseau PV | `#ec4899` | — |
+| wp | sensor.waermepumpe | Pompe à chaleur | `#ef4444` | *(aucune)* |
+| klima | sensor.klimaanlage | Climatisation | `#06b6d4` | *(aucune)* |
+| akku | sensor.akku_ladezustand | État de charge batterie | `#8b5cf6` | *(aucune)* |
+| einspeisung | *(aucune)* | Injection réseau PV | `#ec4899` | *(aucune)* |
 | overview | *(aucune)* | Aperçu électricité | `#0ea5e9` | `energy_entity`, `price_per_kwh` |
 | overview_feedin | *(aucune)* | Aperçu injection | `#ec4899` | `energy_entity`, `price_per_kwh` |
 | rooms | *(aucune)* | Consommation par pièce | `#10b981` | liste `rooms` |
@@ -473,6 +513,19 @@ tant qu'aucune n'est configurée.
 
 En français, la puissance crête s'affiche en kWc dans l'éditeur et sur l'axe
 du graphique ; la clé de configuration reste `kwp`.
+
+## Chargement et mise en cache
+
+La carte garde les dernières valeurs chargées, en mémoire et dans le
+localStorage du navigateur. Quand une carte est reconstruite, par exemple en
+modifiant le tableau de bord ou dans l'aperçu de l'éditeur, elle affiche
+aussitôt les valeurs sans nouvelle requête. Après le rechargement de la
+page, les dernières valeurs apparaissent immédiatement et les nouvelles
+sont récupérées en arrière-plan. Les requêtes de statistiques identiques de
+plusieurs cartes ne partent qu'une fois, et les valeurs mensuelles de toutes
+les années arrivent en une seule requête. Seules des valeurs finies sont
+conservées, sept jours au plus. Un double clic sur une carte en barres la
+recharge immédiatement.
 
 ## Licence
 
